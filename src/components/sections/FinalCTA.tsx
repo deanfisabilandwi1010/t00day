@@ -11,10 +11,10 @@ export function FinalCTA() {
       <div className="cta-inner">
         <div className="cta-title-wrap">
           <Doodle shape="spark" className="cta-doodle--a" />
-          <SplitTitle id="cta-title" className="display-md cta-title" text={"Sudah ketemu\npilihanmu?"} />
+          <SplitTitle id="cta-title" className="display-md cta-title" drift={50} text={"Sudah ketemu\npilihanmu?"} />
         </div>
 
-        <div className="cta-actions" data-reveal>
+        <div className="cta-actions" data-reveal="right">
           <PillLink href="#menu">Lihat Menu</PillLink>
           <OpenListButton />
         </div>

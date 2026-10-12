@@ -10,7 +10,7 @@ export function Featured() {
   return (
     <section id="pilihan" className="featured" aria-labelledby="featured-title">
       <div className="featured-inner">
-        <SplitTitle id="featured-title" className="display-lg featured-title" text={"Yang bikin\nhari jadi\ntooday."} />
+        <SplitTitle id="featured-title" className="display-lg featured-title" drift={70} text={"Yang bikin\nhari jadi\ntooday."} />
 
         <Tilt className="featured-visual">
           <Parallax distance={40}>
@@ -27,8 +27,8 @@ export function Featured() {
         </Tilt>
 
         <div className="featured-items">
-          <FeaturedItem index="01" id="matcha-latte" />
-          <FeaturedItem index="02" id="butertteok" />
+          <FeaturedItem index="01" id="matcha-latte" from="left" />
+          <FeaturedItem index="02" id="butertteok" from="right" />
         </div>
 
         <Doodle shape="loop" className="featured-doodle--a" />

@@ -88,6 +88,9 @@ export const menu: MenuItem[] = rawMenu.map((item) => ({
   verified: false,
 }));
 
+/** Event window untuk mengganti filter menu dari seksi lain; detail = Category. */
+export const FILTER_EVENT = "tooday:filter";
+
 export function getItem(id: string): MenuItem {
   const item = menu.find((entry) => entry.id === id);
   if (!item) throw new Error(`Menu item tidak ditemukan: ${id}`);

@@ -46,7 +46,7 @@ for (const width of [360, 390, 768, 1024, 1440]) {
         const rect = element.getBoundingClientRect();
         return rect.width > 0 && (rect.right > doc.clientWidth + 1 || rect.left < -1);
       })
-      .filter((element) => !element.closest(".marquee, .gallery-viewport, .menu-filters, .hero, .featured, .story, .pill, dialog"))
+      .filter((element) => !element.closest(".marquee, .gallery-viewport, .menu-filters, .rail, .hero, .featured, .story, .pill, dialog"))
       .slice(0, 8)
       .map((element) => `${element.tagName}.${element.className}`);
     const broken = [...document.images].filter((image) => image.complete && image.naturalWidth === 0).map((image) => image.src);

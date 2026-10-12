@@ -31,22 +31,24 @@ const SHAPES: Record<Shape, { viewBox: string; paths: string[]; filled?: boolean
 interface DoodleProps {
   shape: Shape;
   className?: string;
+  /** "scroll": tergambar saat masuk viewport (RevealObserver). "auto": tergambar begitu dipasang, mis. di dialog. */
+  animate?: "scroll" | "auto";
 }
 
 /**
  * Coretan dekoratif bergaya papan menu Tooday. Bentuk geometris sederhana,
  * bukan bagian logo. Garis "tergambar" saat masuk viewport (lihat .doodle di globals.css).
  */
-export function Doodle({ shape, className = "" }: DoodleProps) {
+export function Doodle({ shape, className = "", animate = "scroll" }: DoodleProps) {
   const { viewBox, paths, filled } = SHAPES[shape];
 
   return (
     <svg
       viewBox={viewBox}
-      className={`doodle ${filled ? "doodle--filled" : ""} ${className}`}
+      className={`doodle ${filled ? "doodle--filled" : ""} ${animate === "auto" ? "doodle--auto" : ""} ${className}`}
       aria-hidden="true"
       focusable="false"
-      data-reveal="draw"
+      {...(animate === "scroll" ? { "data-reveal": "draw" } : {})}
     >
       {paths.map((d) => (
         <path key={d} d={d} pathLength={1} />

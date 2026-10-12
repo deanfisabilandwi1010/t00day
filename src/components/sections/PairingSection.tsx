@@ -28,13 +28,13 @@ export function PairingSection() {
           <p className="eyebrow" data-reveal>
             Saran menikmati
           </p>
-          <SplitTitle id="pairing-title" className="display-lg pairing-title" text={"Satu teguk,\nsatu gigitan,\nulangi."} />
-          <p className="pairing-text" data-reveal>
+          <SplitTitle id="pairing-title" className="display-lg pairing-title" drift={60} text={"Satu teguk,\nsatu gigitan,\nulangi."} />
+          <p className="pairing-text" data-reveal="left">
             Pilih minumannya, lihat pasangannya. Ini ide menikmati, bukan paket: tiap menu tetap dipesan dan dihargai
             sendiri.
           </p>
 
-          <div className="pairing-picker" role="group" aria-label="Pilih minuman pendamping" data-reveal>
+          <div className="pairing-picker" role="group" aria-label="Pilih minuman pendamping" data-reveal="left">
             {DRINK_IDS.map((id) => (
               <button key={id} type="button" className="chip" aria-pressed={drinkId === id} onClick={() => setDrinkId(id)}>
                 {getItem(id).name}
@@ -42,7 +42,7 @@ export function PairingSection() {
             ))}
           </div>
 
-          <dl className="pairing-lines" aria-live="polite" data-reveal>
+          <dl className="pairing-lines" aria-live="polite" data-reveal="left">
             {[drink, snack].map((item) => (
               <div key={item.id}>
                 <dt>{item.name}</dt>
@@ -67,7 +67,7 @@ export function PairingSection() {
         <div className="pairing-visual">
           <div className="patch pairing-patch--a" />
           <div className="patch pairing-patch--b" />
-          <div ref={stageRef} className="pairing-stage" data-reveal="pop">
+          <div ref={stageRef} className="pairing-stage" data-reveal="right">
             {/* key memicu animasi masuk setiap minuman berganti */}
             <div key={drink.id} className="pairing-drink">
               <Image src={drink.image!} alt={drink.alt} width={1086} height={1448} sizes="(min-width: 1024px) 24vw, 46vw" />

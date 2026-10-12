@@ -8,7 +8,7 @@ import { PillLink } from "@/components/ui/Pill";
 export function BrandStory() {
   return (
     <section id="cerita" className="story" aria-labelledby="story-title">
-      <figure className="story-figure">
+      <figure className="story-figure" data-reveal="left">
         <Parallax distance={70} className="story-photo">
           <Image
             src="/assets/tooday/editorial/storefront-original.webp"
@@ -23,15 +23,15 @@ export function BrandStory() {
 
       <div className="story-panel">
         <Doodle shape="cloud" className="story-doodle--cloud" />
-        <p className="eyebrow" data-reveal>
+        <p className="eyebrow" data-reveal="right">
           Cerita
         </p>
-        <SplitTitle id="story-title" className="display-lg story-title" text={"A little note\nfor tooday."} />
-        <p className="story-text" data-reveal>
+        <SplitTitle id="story-title" className="display-lg story-title" drift={-60} text={"A little note\nfor tooday."} />
+        <p className="story-text" data-reveal="right">
           Pilihan kopi, matcha, minuman non-kopi, dan ButterTteok dalam satu suasana Tooday. Kalimat di atas tertulis
           di kaca jendela outlet, jadi sapaan kecil sebelum kamu memilih.
         </p>
-        <div data-reveal>
+        <div data-reveal="right">
           <PillLink href="#menu" tone="cream">
             Lihat Menu
           </PillLink>

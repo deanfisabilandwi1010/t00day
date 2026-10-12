@@ -5,6 +5,7 @@ import Image from "next/image";
 import { AtSign, Check, Copy, Trash2 } from "lucide-react";
 import { brand } from "@/data/brand";
 import { formatPrice } from "@/lib/format";
+import { Mascot } from "@/components/ui/Mascot";
 import { PillButton, PillLink } from "@/components/ui/Pill";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Sheet } from "@/components/ui/Sheet";
@@ -44,6 +45,7 @@ export function OrderSummary({ open, onClose }: { open: boolean; onClose: () => 
 
         {lines.length === 0 ? (
           <div className="summary-empty">
+            <Mascot name="boy-peeking" reveal="now" className="summary-mascot" sizes="150px" />
             <p>Belum ada yang kamu simpan. Jelajahi menu, lalu tekan tanda tambah di menu yang bikin ingin coba.</p>
             <PillButton
               tone="olive"

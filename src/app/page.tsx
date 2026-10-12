@@ -1,8 +1,10 @@
+import { DriftObserver } from "@/components/motion/DriftObserver";
 import { Loader } from "@/components/motion/Loader";
 import { RevealObserver } from "@/components/motion/RevealObserver";
 import { SmoothScroll } from "@/components/motion/SmoothScroll";
 import { OrderProvider } from "@/components/order/OrderProvider";
 import { BrandStory } from "@/components/sections/BrandStory";
+import { CategoryRail } from "@/components/sections/CategoryRail";
 import { Featured } from "@/components/sections/Featured";
 import { FinalCTA } from "@/components/sections/FinalCTA";
 import { Gallery } from "@/components/sections/Gallery";
@@ -22,6 +24,7 @@ export default function Home() {
       <Loader />
       <SmoothScroll />
       <RevealObserver />
+      <DriftObserver />
       <a href="#main" className="skip-link">
         Lewati ke konten
       </a>
@@ -36,6 +39,7 @@ export default function Home() {
           </ul>
         </Marquee>
         <Featured />
+        <CategoryRail />
         <MenuExplorer />
         <BrandStory />
         <PairingSection />

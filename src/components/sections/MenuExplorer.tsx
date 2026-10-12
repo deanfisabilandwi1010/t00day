@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import Image from "next/image";
 import { Plus } from "lucide-react";
-import { byCategory, CATEGORIES, menu, type Category, type MenuItem } from "@/data/menu";
+import { byCategory, CATEGORIES, FILTER_EVENT, menu, type Category, type MenuItem } from "@/data/menu";
+import { TILE } from "@/data/tiles";
 import { formatPrice } from "@/lib/format";
 import { ScrollTrigger } from "@/lib/motion";
 import { useOrder } from "@/components/order/OrderProvider";
@@ -18,24 +19,21 @@ const FILTERS: { value: Filter; count: number }[] = [
   ...CATEGORIES.map((category) => ({ value: category as Filter, count: byCategory(category).length })),
 ];
 
-// Warna ubin kartu mengikuti warna minuman pada foto; hanya latar, bukan warna merek.
-const TILE: Record<string, string> = {
-  "dirty-tooday-coffe": "#d3b697",
-  "matcha-latte": "#c9d6a6",
-  "matcha-biscoff-latte": "#d5d79c",
-  "dark-choco": "#c4a088",
-  "choco-hazelnat": "#d8bba1",
-  "mango-yakult": "#f5dd8f",
-  "lycee-yakult": "#ebe5c4",
-  "fruitpunch-yakult": "#f4c9c5",
-  butertteok: "#f6e39c",
-};
-
 export function MenuExplorer() {
   const [filter, setFilter] = useState<Filter>("Semua");
   const filtered = filter === "Semua" ? menu : byCategory(filter);
   // Menu berfoto tampil lebih dulu; urutan papan menu dipertahankan di tiap kelompok.
   const items = [...filtered.filter((item) => item.image), ...filtered.filter((item) => !item.image)];
+
+  // Rel kategori di atas bisa meminta filter tertentu sebelum menggulir ke sini.
+  useEffect(() => {
+    const onFilter = (event: Event) => {
+      const category = (event as CustomEvent<Category>).detail;
+      if (CATEGORIES.includes(category)) setFilter(category);
+    };
+    window.addEventListener(FILTER_EVENT, onFilter);
+    return () => window.removeEventListener(FILTER_EVENT, onFilter);
+  }, []);
 
   // Tinggi grid berubah saat filter berganti; trigger di bawahnya perlu dihitung ulang.
   useEffect(() => {

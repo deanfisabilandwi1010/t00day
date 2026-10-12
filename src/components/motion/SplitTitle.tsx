@@ -7,10 +7,12 @@ interface SplitTitleProps {
   id?: string;
   /** Tanpa observer: animasi berjalan saat load (dipakai hero). */
   immediate?: boolean;
+  /** Jarak geser menyamping (px) mengikuti scroll; lihat DriftObserver. */
+  drift?: number;
 }
 
 /** Judul yang naik huruf demi huruf. Baris dipisah dengan "\n". Screen reader membaca aria-label utuh. */
-export function SplitTitle({ text, as: Tag = "h2", className = "", id, immediate = false }: SplitTitleProps) {
+export function SplitTitle({ text, as: Tag = "h2", className = "", id, immediate = false, drift }: SplitTitleProps) {
   const lines = text.split("\n").map((line) => line.split(" "));
   // Indeks huruf global menentukan jeda stagger.
   const offsets: number[][] = [];
@@ -30,6 +32,7 @@ export function SplitTitle({ text, as: Tag = "h2", className = "", id, immediate
       aria-label={text.replace(/\n/g, " ")}
       className={`split ${immediate ? "split--now" : ""} ${className}`}
       {...(immediate ? {} : { "data-reveal": "" })}
+      data-drift={drift}
     >
       <span aria-hidden="true">
         {lines.map((words, lineIndex) => (

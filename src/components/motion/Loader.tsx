@@ -10,7 +10,8 @@ import { Mascot } from "@/components/ui/Mascot";
 
 /** Kunci sessionStorage; harus sama dengan skrip inline di layout. */
 const SEEN_KEY = "tooday-intro";
-const MIN_MS = 1700;
+/** Lama minimum pembuka terlihat sebelum mulai keluar. */
+const MIN_MS = 1900;
 const MAX_WAIT_MS = 2600;
 /** Durasi keluar: konten mengecil (350 ms) lalu sapuan coretan (950 ms). */
 const EXIT_MS = 1300;
@@ -56,9 +57,13 @@ export function Loader() {
       if (document.readyState === "complete") resolve();
       else window.addEventListener("load", () => resolve(), { once: true });
     });
-    const ready = Promise.race([Promise.all([document.fonts.ready, pageReady]), wait(Math.max(0, MAX_WAIT_MS - performance.now()))]);
-    // Durasi minimum dihitung sejak halaman dibuka, bukan sejak hydration.
-    Promise.all([wait(Math.max(0, MIN_MS - performance.now())), ready]).then(leave);
+    // Durasi dihitung sejak layar pembuka benar-benar terlihat (first contentful paint), bukan sejak
+    // navigasi. Di ponsel paint pertama datang lebih lambat; tanpa ini pembuka hanya tampil sekejap.
+    const paint = performance.getEntriesByName("first-contentful-paint")[0]?.startTime;
+    const shownAt = paint ?? performance.now();
+    const remaining = (ms: number) => Math.max(0, shownAt + ms - performance.now());
+    const ready = Promise.race([Promise.all([document.fonts.ready, pageReady]), wait(remaining(MAX_WAIT_MS))]);
+    Promise.all([wait(remaining(MIN_MS)), ready]).then(leave);
 
     element.addEventListener("click", leave);
     window.addEventListener("keydown", leave);

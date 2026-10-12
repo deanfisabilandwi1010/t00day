@@ -84,7 +84,8 @@ function CardView({ card }: { card: Card }) {
 }
 
 /**
- * Jemuran polaroid: foto berukuran sama dijepit di tali, berjalan sendiri dan bisa diseret. Tanpa JS atau pada reduced-motion,
+ * Jemuran polaroid: foto berukuran sama dijepit di tali, berjalan sendiri, bisa diseret,
+ * dan berbalik arah mengikuti arah scroll halaman. Tanpa JS atau pada reduced-motion,
  * strip menjadi daftar yang digulir manual (kelas .is-live tidak pernah terpasang).
  */
 export function Gallery() {
@@ -106,6 +107,9 @@ export function Gallery() {
       let drag: { id: number; lastX: number } | null = null;
       // Kecepatan mengejar target dengan halus agar berhenti/jalan tidak mendadak.
       let velocity = -SPEED;
+      // -1 = ke kiri (scroll turun), 1 = ke kanan (scroll naik).
+      let direction = -1;
+      let lastScroll = window.scrollY;
 
       const half = () => track.scrollWidth / 2;
       const wrap = () => {
@@ -118,7 +122,7 @@ export function Gallery() {
       const tick = (_time: number, deltaMs: number) => {
         if (!visible || drag) return;
         const paused = hovering || document.documentElement.dataset.motion === "paused";
-        velocity += ((paused ? 0 : -SPEED) - velocity) * 0.08;
+        velocity += ((paused ? 0 : SPEED * direction) - velocity) * 0.08;
         if (Math.abs(velocity) < 0.05) return;
         x += velocity * (deltaMs / 1000);
         wrap();
@@ -128,6 +132,19 @@ export function Gallery() {
 
       const observer = new IntersectionObserver(([entry]) => (visible = entry.isIntersecting), { rootMargin: "20% 0px" });
       observer.observe(viewport);
+
+      // Scroll halaman ikut mendorong jemuran dan menentukan arah jalannya.
+      const onScroll = () => {
+        const delta = window.scrollY - lastScroll;
+        lastScroll = window.scrollY;
+        if (!delta) return;
+        direction = delta > 0 ? -1 : 1;
+        if (!visible || drag) return;
+        x -= Math.max(-120, Math.min(120, delta)) * 0.3;
+        wrap();
+        setX(x);
+      };
+      window.addEventListener("scroll", onScroll, { passive: true });
 
       const onEnter = (event: PointerEvent) => {
         if (event.pointerType === "mouse") hovering = true;
@@ -160,6 +177,7 @@ export function Gallery() {
 
       return () => {
         gsap.ticker.remove(tick);
+        window.removeEventListener("scroll", onScroll);
         observer.disconnect();
         viewport.removeEventListener("pointerenter", onEnter);
         viewport.removeEventListener("pointerleave", onLeave);
@@ -198,8 +216,8 @@ export function Gallery() {
   return (
     <section className="gallery" aria-labelledby="gallery-title">
       <div className="gallery-head">
-        <SplitTitle id="gallery-title" className="display-md" text="Tooday, apa adanya." />
-        <p data-reveal>
+        <SplitTitle id="gallery-title" className="display-md" drift={70} text="Tooday, apa adanya." />
+        <p data-reveal="right">
           Foto dan materi asli dari Tooday, dijepit satu-satu di tali. Seret untuk melihat lebih cepat, lalu
           intip kabar terbaru di{" "}
           <a href={brand.instagramUrl} target="_blank" rel="noreferrer" className="inline-link">

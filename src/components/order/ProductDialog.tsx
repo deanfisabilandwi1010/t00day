@@ -1,10 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import Image from "next/image";
 import { Plus } from "lucide-react";
 import type { MenuItem } from "@/data/menu";
+import { TILE } from "@/data/tiles";
 import { formatPrice } from "@/lib/format";
+import { Doodle } from "@/components/ui/Doodle";
+import { Mascot } from "@/components/ui/Mascot";
 import { PillButton } from "@/components/ui/Pill";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Sheet } from "@/components/ui/Sheet";
@@ -19,7 +22,7 @@ interface ProductDialogProps {
 export function ProductDialog({ item, open, onClose }: ProductDialogProps) {
   return (
     <Sheet open={open} onClose={onClose} labelledBy="product-dialog-title">
-      {/* key mereset jumlah setiap kali produk berganti */}
+      {/* key mereset jumlah dan memutar ulang animasi dekorasi setiap kali produk berganti */}
       {item && <ProductDetail key={item.id} item={item} onClose={onClose} />}
     </Sheet>
   );
@@ -29,22 +32,40 @@ function ProductDetail({ item, onClose }: { item: MenuItem; onClose: () => void 
   const { add, openList } = useOrder();
   const [qty, setQty] = useState(1);
   const mediaRef = useRef<HTMLDivElement>(null);
+  const tile = TILE[item.id];
 
   return (
     <article className="detail">
-      <div ref={mediaRef} className="detail-media">
+      <div
+        ref={mediaRef}
+        className={`detail-media ${tile ? "" : "detail-media--dark"}`}
+        style={{ "--tile": tile } as CSSProperties}
+      >
+        <div className="patch detail-patch" aria-hidden="true" />
+        <Doodle shape="spark" animate="auto" className="detail-doodle--a" />
+        <Doodle shape="loop" animate="auto" className="detail-doodle--b" />
         {item.image ? (
-          <Image src={item.image} alt={item.alt} width={1086} height={1448} sizes="(min-width: 768px) 360px, 70vw" />
+          <Image
+            src={item.image}
+            alt={item.alt}
+            width={1086}
+            height={1448}
+            sizes="(min-width: 768px) 360px, 70vw"
+            className="detail-product"
+          />
         ) : (
           <p className="detail-nophoto">
             <span aria-hidden="true">{item.category}</span>
             Foto menu ini menyusul.
           </p>
         )}
+        <Mascot name="boy-peeking" reveal="now" className="detail-peek" sizes="130px" />
       </div>
 
       <div className="detail-body">
-        <p className="eyebrow">{item.category}</p>
+        <p className="eyebrow">
+          <span className="sparkle" aria-hidden="true" /> {item.category}
+        </p>
         <h2 id="product-dialog-title" className="detail-title">
           {item.name}
         </h2>
@@ -80,9 +101,13 @@ function ProductDetail({ item, onClose }: { item: MenuItem; onClose: () => void 
             Simpan ke pilihanku
           </PillButton>
         </div>
-        <button type="button" className="text-link" onClick={openList}>
-          Lihat pilihanku
-        </button>
+
+        <div className="detail-foot">
+          <button type="button" className="text-link" onClick={openList}>
+            Lihat pilihanku
+          </button>
+          <Mascot name="girl-head" reveal="now" className="detail-buddy" sizes="110px" />
+        </div>
       </div>
     </article>
   );

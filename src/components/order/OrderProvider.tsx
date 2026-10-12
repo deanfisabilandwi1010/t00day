@@ -1,0 +1,131 @@
+"use client";
+
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { getItem, type MenuItem } from "@/data/menu";
+import { gsap, MQ } from "@/lib/motion";
+import { OrderSummary } from "./OrderSummary";
+import { ProductDialog } from "./ProductDialog";
+
+export interface OrderLine {
+  item: MenuItem;
+  qty: number;
+}
+
+interface OrderContextValue {
+  lines: OrderLine[];
+  count: number;
+  /** Jumlah harga yang diketahui; item tanpa harga tidak dihitung. */
+  total: number;
+  add: (id: string, qty?: number, from?: HTMLElement | null) => void;
+  setQty: (id: string, qty: number) => void;
+  clear: () => void;
+  openList: () => void;
+  openDetail: (id: string) => void;
+}
+
+const OrderContext = createContext<OrderContextValue | null>(null);
+
+export const ORDER_TOGGLE_ID = "order-toggle";
+
+export function useOrder(): OrderContextValue {
+  const value = useContext(OrderContext);
+  if (!value) throw new Error("useOrder harus dipakai di dalam OrderProvider");
+  return value;
+}
+
+/** Gambar produk melayang ke tombol "Pilihanku" sebagai umpan balik visual. */
+function flyToList(from: HTMLElement | null | undefined) {
+  const target = document.getElementById(ORDER_TOGGLE_ID);
+  const image = from?.querySelector("img") ?? (from instanceof HTMLImageElement ? from : null);
+  if (!target || !image || !window.matchMedia(MQ.motionOk).matches) return;
+
+  const start = image.getBoundingClientRect();
+  const end = target.getBoundingClientRect();
+  if (!start.width || !end.width) return;
+
+  const ghost = image.cloneNode() as HTMLImageElement;
+  ghost.removeAttribute("srcset");
+  ghost.removeAttribute("sizes");
+  ghost.src = image.currentSrc || image.src;
+  ghost.alt = "";
+  ghost.className = "fly-ghost";
+  Object.assign(ghost.style, {
+    left: `${start.left}px`,
+    top: `${start.top}px`,
+    width: `${start.width}px`,
+    height: `${start.height}px`,
+  });
+  document.body.appendChild(ghost);
+
+  gsap.to(ghost, {
+    x: end.left + end.width / 2 - (start.left + start.width / 2),
+    y: end.top + end.height / 2 - (start.top + start.height / 2),
+    scale: Math.max(0.08, 28 / start.width),
+    rotate: 18,
+    opacity: 0.4,
+    duration: 0.7,
+    ease: "power3.in",
+    onComplete: () => {
+      ghost.remove();
+      gsap.fromTo(target, { scale: 1.18 }, { scale: 1, duration: 0.4, ease: "back.out(3)" });
+    },
+  });
+}
+
+export function OrderProvider({ children }: { children: ReactNode }) {
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [listOpen, setListOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+
+  const add = useCallback((id: string, qty = 1, from?: HTMLElement | null) => {
+    setQuantities((current) => ({ ...current, [id]: Math.min(20, (current[id] ?? 0) + qty) }));
+    setAnnouncement(`${qty} ${getItem(id).name} ditambahkan ke pilihanmu.`);
+    flyToList(from);
+  }, []);
+
+  const setQty = useCallback((id: string, qty: number) => {
+    setQuantities((current) => {
+      const next = { ...current };
+      if (qty <= 0) delete next[id];
+      else next[id] = Math.min(20, qty);
+      return next;
+    });
+  }, []);
+
+  const clear = useCallback(() => setQuantities({}), []);
+  const openList = useCallback(() => {
+    setDetailOpen(false);
+    setListOpen(true);
+  }, []);
+  const openDetail = useCallback((id: string) => {
+    setDetailId(id);
+    setDetailOpen(true);
+  }, []);
+
+  const value = useMemo<OrderContextValue>(() => {
+    const lines = Object.entries(quantities).map(([id, qty]) => ({ item: getItem(id), qty }));
+    return {
+      lines,
+      count: lines.reduce((sum, line) => sum + line.qty, 0),
+      total: lines.reduce((sum, line) => sum + (line.item.price ?? 0) * line.qty, 0),
+      add,
+      setQty,
+      clear,
+      openList,
+      openDetail,
+    };
+  }, [quantities, add, setQty, clear, openList, openDetail]);
+
+  return (
+    <OrderContext.Provider value={value}>
+      {children}
+      <ProductDialog item={detailId ? getItem(detailId) : null} open={detailOpen} onClose={() => setDetailOpen(false)} />
+      <OrderSummary open={listOpen} onClose={() => setListOpen(false)} />
+      <p className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </p>
+    </OrderContext.Provider>
+  );
+}

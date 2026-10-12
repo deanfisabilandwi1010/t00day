@@ -1,0 +1,260 @@
+[
+  {
+    "id": "mango-yakult",
+    "kind": "products",
+    "png": "/assets/tooday/products/mango-yakult.png",
+    "webp": "/assets/tooday/products/mango-yakult.webp",
+    "width": 1086,
+    "height": 1448,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.46 (2).jpeg",
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "buttertteok",
+    "kind": "products",
+    "png": "/assets/tooday/products/buttertteok.png",
+    "webp": "/assets/tooday/products/buttertteok.webp",
+    "width": 1086,
+    "height": 1448,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.47 (2).jpeg",
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "coffee-layered",
+    "kind": "products",
+    "png": "/assets/tooday/products/coffee-layered.png",
+    "webp": "/assets/tooday/products/coffee-layered.webp",
+    "width": 1086,
+    "height": 1448,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.50.jpeg",
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "matcha-biscoff",
+    "kind": "products",
+    "png": "/assets/tooday/products/matcha-biscoff.png",
+    "webp": "/assets/tooday/products/matcha-biscoff.webp",
+    "width": 1086,
+    "height": 1448,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.49 (1).jpeg",
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "choco-light",
+    "kind": "products",
+    "png": "/assets/tooday/products/choco-light.png",
+    "webp": "/assets/tooday/products/choco-light.webp",
+    "width": 1086,
+    "height": 1448,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.47 (1).jpeg",
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "dark-choco",
+    "kind": "products",
+    "png": "/assets/tooday/products/dark-choco.png",
+    "webp": "/assets/tooday/products/dark-choco.webp",
+    "width": 1086,
+    "height": 1448,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.47.jpeg",
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "americano",
+    "kind": "products",
+    "png": "/assets/tooday/products/americano.png",
+    "webp": "/assets/tooday/products/americano.webp",
+    "width": 1086,
+    "height": 1448,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.48 (1).jpeg",
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "lychee-yakult",
+    "kind": "products",
+    "png": "/assets/tooday/products/lychee-yakult.png",
+    "webp": "/assets/tooday/products/lychee-yakult.webp",
+    "width": 1086,
+    "height": 1448,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.48 (2).jpeg",
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "fruitpunch-yakult",
+    "kind": "products",
+    "png": "/assets/tooday/products/fruitpunch-yakult.png",
+    "webp": "/assets/tooday/products/fruitpunch-yakult.webp",
+    "width": 1086,
+    "height": 1448,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.49.jpeg",
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "matcha-latte",
+    "kind": "products",
+    "png": "/assets/tooday/products/matcha-latte.png",
+    "webp": "/assets/tooday/products/matcha-latte.webp",
+    "width": 1086,
+    "height": 1448,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.50 (1).jpeg",
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "coffee-brown-mixed",
+    "kind": "products",
+    "png": "/assets/tooday/products/coffee-brown-mixed.png",
+    "webp": "/assets/tooday/products/coffee-brown-mixed.webp",
+    "width": 1086,
+    "height": 1448,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.51.jpeg",
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "tooday-logo-restored",
+    "kind": "brand",
+    "png": "/assets/tooday/brand/tooday-logo-restored.png",
+    "webp": "/assets/tooday/brand/tooday-logo-restored.webp",
+    "width": 1536,
+    "height": 1024,
+    "hasAlpha": false,
+    "generation": "imagegen-reference-edit",
+    "source": [
+      "WhatsApp Image 2026-10-12 at 10.59.50.jpeg"
+    ],
+    "note": "AI-restored from printed label; not original master logo; review required."
+  },
+  {
+    "id": "tooday-hero-pairing",
+    "kind": "hero",
+    "png": "/assets/tooday/hero/tooday-hero-pairing.png",
+    "webp": "/assets/tooday/hero/tooday-hero-pairing.webp",
+    "width": 1536,
+    "height": 1024,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": [
+      "WhatsApp Image 2026-10-12 at 10.59.47 (2).jpeg",
+      "WhatsApp Image 2026-10-12 at 10.59.50.jpeg",
+      "WhatsApp Image 2026-10-12 at 10.59.50 (1).jpeg"
+    ],
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "buttertteok-floating",
+    "kind": "decor",
+    "png": "/assets/tooday/decor/buttertteok-floating.png",
+    "webp": "/assets/tooday/decor/buttertteok-floating.webp",
+    "width": 1312,
+    "height": 1199,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": [
+      "WhatsApp Image 2026-10-12 at 10.59.47 (2).jpeg"
+    ],
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "disco-ball-cream",
+    "kind": "decor",
+    "png": "/assets/tooday/decor/disco-ball-cream.png",
+    "webp": "/assets/tooday/decor/disco-ball-cream.webp",
+    "width": 1186,
+    "height": 1327,
+    "hasAlpha": true,
+    "generation": "imagegen-reference-edit",
+    "source": [
+      "WhatsApp Image 2026-10-12 at 10.59.46 (1).jpeg"
+    ],
+    "note": "Generated derivative; original source retained."
+  },
+  {
+    "id": "menu-original",
+    "kind": "editorial",
+    "jpg": "/assets/tooday/editorial/menu-original.jpg",
+    "webp": "/assets/tooday/editorial/menu-original.webp",
+    "width": 1132,
+    "height": 1600,
+    "generation": "original-unmodified",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.46 (1).jpeg"
+  },
+  {
+    "id": "buttertteok-poster-original",
+    "kind": "editorial",
+    "jpg": "/assets/tooday/editorial/buttertteok-poster-original.jpg",
+    "webp": "/assets/tooday/editorial/buttertteok-poster-original.webp",
+    "width": 1132,
+    "height": 1600,
+    "generation": "original-unmodified",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.45.jpeg"
+  },
+  {
+    "id": "storefront-original",
+    "kind": "editorial",
+    "jpg": "/assets/tooday/editorial/storefront-original.jpg",
+    "webp": "/assets/tooday/editorial/storefront-original.webp",
+    "width": 1200,
+    "height": 1600,
+    "generation": "original-unmodified",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.52.jpeg"
+  },
+  {
+    "id": "brand-collage-original",
+    "kind": "editorial",
+    "jpg": "/assets/tooday/editorial/brand-collage-original.jpg",
+    "webp": "/assets/tooday/editorial/brand-collage-original.webp",
+    "width": 1254,
+    "height": 1254,
+    "generation": "original-unmodified",
+    "source": "WhatsApp Image 2026-10-12 at 10.59.51 (1).jpeg"
+  },
+  {
+    "id": "checker-olive-red",
+    "kind": "decor",
+    "svg": "/assets/tooday/decor/checker-olive-red.svg",
+    "generation": "original-geometric-vector",
+    "note": "Exact brand palette. SVG decorative asset, not logo."
+  },
+  {
+    "id": "checker-cream-red",
+    "kind": "decor",
+    "svg": "/assets/tooday/decor/checker-cream-red.svg",
+    "generation": "original-geometric-vector",
+    "note": "Exact brand palette. SVG decorative asset, not logo."
+  },
+  {
+    "id": "sparkle-cream",
+    "kind": "decor",
+    "svg": "/assets/tooday/decor/sparkle-cream.svg",
+    "generation": "original-geometric-vector",
+    "note": "Exact brand palette. SVG decorative asset, not logo."
+  },
+  {
+    "id": "orbit-cream",
+    "kind": "decor",
+    "svg": "/assets/tooday/decor/orbit-cream.svg",
+    "generation": "original-geometric-vector",
+    "note": "Exact brand palette. SVG decorative asset, not logo."
+  }
+]

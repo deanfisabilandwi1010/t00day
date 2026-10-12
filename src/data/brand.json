@@ -1,0 +1,19 @@
+{
+  "name": "Tooday",
+  "tagline": "Make every day, tooday!",
+  "instagramHandle": "@tooday.house",
+  "instagramUrl": "https://www.instagram.com/tooday.house/",
+  "instagramStatus": "handle transcribed from assets; URL not independently verified",
+  "whatsapp": null,
+  "address": null,
+  "openingHours": null,
+  "logo": "/assets/tooday/brand/tooday-logo-restored.png",
+  "logoStatus": "AI restoration from package label, not original master",
+  "palette": {
+    "olive": "#3C4A26",
+    "cream": "#FCF9DA",
+    "red": "#BC1823",
+    "ink": "#202817"
+  },
+  "paletteSource": "Most frequent flat RGB colors in supplied menu JPEG; ink is supporting dark neutral."
+}

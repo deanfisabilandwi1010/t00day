@@ -1,0 +1,18 @@
+/* Import in your global stylesheet. Original brand colors sampled from menu. */
+:root {
+  --tooday-olive: #3C4A26;
+  --tooday-cream: #FCF9DA;
+  --tooday-red: #BC1823;
+  --tooday-ink: #202817;
+  --brand-primary: var(--tooday-olive);
+  --brand-secondary: var(--tooday-cream);
+  --brand-accent: var(--tooday-red);
+  --brand-surface: var(--tooday-cream);
+  --brand-ink: var(--tooday-ink);
+  --tooday-ease: cubic-bezier(.22,1,.36,1);
+}
+.tooday-product { width: 100%; height: 100%; object-fit: contain; }
+.tooday-checker { background-image: url('/assets/tooday/decor/checker-olive-red.svg'); background-size: 48px 48px; }
+@media (prefers-reduced-motion: reduce) {
+  .tooday-motion { animation: none !important; transition: none !important; transform: none !important; }
+}

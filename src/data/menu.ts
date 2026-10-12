@@ -23,11 +23,13 @@ export interface MenuItem {
   verified: boolean;
 }
 
-// Copy publik per item. Hanya memakai keterangan yang tercetak di papan menu.
+// Copy publik per item, berdasarkan keterangan di papan menu. Ejaan nama sudah dirapikan atas
+// konfirmasi pemilik; ejaan asli papan menu tersimpan di sourceName.
 const PUBLIC_COPY: Record<string, { description: string | null; alt: string }> = {
   "hi-tooday-coffe": { description: "Kopi susu basic.", alt: "" },
   "good-tooday-coffe": { description: "Kopi susu strong.", alt: "" },
-  "out-after-drak": { description: "Kopi susu outside.", alt: "" },
+  // Nama dikoreksi pemilik: papan menu menulis "Out After Drak (kopi susu outside)".
+  "out-after-drak": { description: "Kopi susu dengan susu oat.", alt: "" },
   "dirty-tooday-coffe": {
     description: "Americano.",
     alt: "Segelas americano dingin Tooday dalam cup berlabel",
@@ -37,7 +39,8 @@ const PUBLIC_COPY: Record<string, { description: string | null; alt: string }> =
     description: "Matcha latte.",
     alt: "Segelas matcha latte dingin Tooday dalam cup berlabel",
   },
-  "matcha-out-latte": { description: null, alt: "" },
+  // Nama dikoreksi pemilik: papan menu menulis "out", yang dimaksud "oat".
+  "matcha-out-latte": { description: "Matcha latte dengan susu oat.", alt: "" },
   "matcha-biscoff-latte": {
     description: "Matcha latte dengan Biscoff.",
     alt: "Segelas matcha Biscoff latte Tooday dengan lapisan hijau dan karamel",
@@ -47,8 +50,8 @@ const PUBLIC_COPY: Record<string, { description: string | null; alt: string }> =
     alt: "Segelas minuman cokelat gelap Tooday dalam cup berlabel",
   },
   "choco-hazelnat": {
-    description: "Cokelat hazelnat.",
-    alt: "Segelas minuman cokelat hazelnat Tooday dalam cup berlabel",
+    description: "Cokelat hazelnut.",
+    alt: "Segelas minuman cokelat hazelnut Tooday dalam cup berlabel",
   },
   "mango-yakult": {
     description: "Yakult rasa mangga.",

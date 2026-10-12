@@ -371,7 +371,7 @@ html.js .split[data-reveal].is-in .split-char {
   animation-play-state: paused;
 }
 
-html[data-motion="paused"] :is(.marquee-track, .floaty, .swing, .loader-dots img, .loader-mascot img) {
+html[data-motion="paused"] :is(.marquee-track, .floaty, .swing, .loader-dots img, .loader-mascot img, .polaroid-swing) {
   animation-play-state: paused;
 }
 
@@ -1868,10 +1868,10 @@ html.is-loading:not(.is-revealing) .hero :is(.hero-in, .hero-pop, .split-char, .
 }
 
 /* ------------------------------------------------------------------
-   Galeri berjalan
+   Galeri berjalan: jemuran polaroid
 ------------------------------------------------------------------ */
 .gallery {
-  padding-block: clamp(48px, 6vw, 96px) clamp(56px, 7vw, 112px);
+  padding-block: clamp(48px, 6vw, 96px) clamp(40px, 5vw, 80px);
   overflow-x: clip;
 }
 
@@ -1897,15 +1897,35 @@ html.is-loading:not(.is-revealing) .hero :is(.hero-in, .hero-pop, .split-char, .
 
 /* Bawaan: daftar yang digulir manual. .is-live (JS + motion aktif) mengubahnya jadi strip berjalan. */
 .gallery-viewport {
-  --gap: clamp(12px, 2vw, 28px);
-  --card: clamp(210px, 27vw, 410px);
-  margin-top: clamp(28px, 4vw, 56px);
+  --gap: clamp(14px, 2.2vw, 34px);
+  --card: clamp(190px, 21vw, 300px);
+  --rope-y: 34px;
+  --wood: #d8b78a;
+  --wood-deep: #b08c5c;
+  position: relative;
+  margin-top: clamp(20px, 3vw, 40px);
+  padding-block: 12px clamp(40px, 5vw, 64px);
   overflow-x: auto;
   scrollbar-width: none;
 }
 
 .gallery-viewport::-webkit-scrollbar {
   display: none;
+}
+
+/* Tali: diam di tempat, polaroid yang bergerak di bawahnya. */
+.gallery-viewport::before {
+  content: "";
+  position: sticky;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: 3px;
+  margin-top: var(--rope-y);
+  margin-bottom: calc((var(--rope-y) + 3px) * -1);
+  border-radius: 2px;
+  background: var(--wood-deep);
+  box-shadow: 0 2px 3px rgb(32 40 23 / 0.2);
 }
 
 .gallery-viewport.is-live {
@@ -1929,7 +1949,7 @@ html.is-loading:not(.is-revealing) .hero :is(.hero-in, .hero-pop, .split-char, .
   display: flex;
   align-items: flex-start;
   gap: var(--gap);
-  padding-inline: var(--gap) 0;
+  padding-left: var(--gap);
 }
 
 .gallery-group[aria-hidden="true"] {
@@ -1940,44 +1960,124 @@ html.is-loading:not(.is-revealing) .hero :is(.hero-in, .hero-pop, .split-char, .
   display: flex;
 }
 
-.gallery-item {
+.polaroid {
   position: relative;
   flex: 0 0 var(--card);
-  aspect-ratio: 1;
+  padding-top: calc(var(--rope-y) - 6px);
+}
+
+/* Jepitan kayu: menjepit tali, tidak ikut berayun. */
+.polaroid-pin {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  z-index: 2;
+  width: 14px;
+  height: 46px;
+  border-radius: 3px 3px 5px 5px;
+  background: linear-gradient(90deg, var(--wood) 0 44%, var(--wood-deep) 44% 56%, var(--wood) 56%);
+  box-shadow: 0 2px 4px rgb(32 40 23 / 0.28);
+  translate: -50% 0;
+  rotate: calc(var(--tilt) * 0.5);
+}
+
+.polaroid-pin::after {
+  content: "";
+  position: absolute;
+  top: 17px;
+  right: -2px;
+  left: -2px;
+  height: 4px;
+  border-radius: 2px;
+  background: #8d8d86;
+}
+
+/* Kertas foto: berayun dari titik jepit di tengah atas. */
+.polaroid-swing {
+  padding: 5% 5% 0;
+  border-radius: 4px;
+  background: var(--color-paper);
+  box-shadow:
+    0 1px 0 rgb(32 40 23 / 0.08),
+    0 16px 26px rgb(32 40 23 / 0.2);
+  rotate: var(--tilt);
+  transform-origin: 50% 0;
+  transition: rotate 0.5s var(--ease);
+}
+
+@keyframes sway {
+  from {
+    transform: rotate(-1.4deg);
+  }
+  to {
+    transform: rotate(1.4deg);
+  }
+}
+
+@keyframes swing-hit {
+  0% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(7deg);
+  }
+  45% {
+    transform: rotate(-5deg);
+  }
+  70% {
+    transform: rotate(3deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+  .polaroid-swing {
+    animation: sway 3.6s ease-in-out var(--delay) infinite alternate;
+  }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .polaroid:hover .polaroid-swing {
+    animation: swing-hit 0.9s var(--ease);
+    rotate: 0deg;
+  }
+}
+
+.polaroid-photo {
+  position: relative;
+  aspect-ratio: 4 / 5;
   overflow: hidden;
-  border: 1.5px solid var(--color-ink);
-  border-radius: clamp(20px, 2.4vw, 32px);
   background: var(--color-olive);
-  transition: transform 0.35s var(--ease);
+  container-type: inline-size;
 }
 
-.gallery-item--tall {
-  aspect-ratio: 1 / 1.45;
-}
-
-@media (hover: hover) {
-  .gallery-item:hover {
-    transform: translateY(-6px) rotate(-1.2deg);
-  }
-
-  .gallery-item:nth-child(even):hover {
-    transform: translateY(-6px) rotate(1.2deg);
-  }
-}
-
-.gallery-item > img {
+.polaroid-photo > img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   pointer-events: none;
 }
 
+.polaroid-caption {
+  padding: 10px 2px 12px;
+  color: var(--color-olive);
+  font-family: var(--font-display);
+  font-size: clamp(0.95rem, 1.25vw, 1.2rem);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Kartu merek di dalam bingkai polaroid; ukuran mengikuti lebar foto (cqi). */
 .gcard {
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  padding: clamp(18px, 2.4vw, 32px);
+  padding: 8cqi;
 }
 
 .gcard--red {
@@ -1994,7 +2094,7 @@ html.is-loading:not(.is-revealing) .hero :is(.hero-in, .hero-pop, .split-char, .
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 12px;
+  gap: 4cqi;
   background: #f6e39c;
   color: var(--color-olive);
 }
@@ -2003,7 +2103,7 @@ html.is-loading:not(.is-revealing) .hero :is(.hero-in, .hero-pop, .split-char, .
   position: relative;
   z-index: 1;
   font-family: var(--font-display);
-  font-size: clamp(1.6rem, 3.3vw, 3.1rem);
+  font-size: 12.5cqi;
   font-weight: 700;
   line-height: 0.98;
   letter-spacing: -0.01em;
@@ -2015,43 +2115,44 @@ html.is-loading:not(.is-revealing) .hero :is(.hero-in, .hero-pop, .split-char, .
 }
 
 .gcard-doodle--cloud {
-  top: 34%;
+  top: 36%;
   right: -8%;
-  width: 46%;
+  width: 44%;
   opacity: 0.9;
 }
 
 .gcard-doodle--loop {
   top: 30%;
   right: 8%;
-  width: 34%;
+  width: 32%;
 }
 
 .gcard-mascot {
   position: absolute;
   right: -4%;
   bottom: -3%;
-  width: 62%;
+  width: 66%;
 }
 
 .gcard-mascot--center {
   position: relative;
   right: auto;
   bottom: auto;
-  width: 48%;
+  width: 52%;
 }
 
 .gcard-product {
   position: absolute;
-  right: -12%;
-  bottom: 4%;
-  width: 124%;
+  right: -14%;
+  bottom: 5%;
+  width: 128%;
   max-width: none;
-  filter: drop-shadow(0 18px 18px rgb(0 0 0 / 0.3));
+  filter: drop-shadow(0 4cqi 4cqi rgb(0 0 0 / 0.3));
   pointer-events: none;
 }
 
 .gcard-patch {
+  --s: 5cqi;
   --patch-color: color-mix(in srgb, var(--color-olive) 22%, transparent);
   top: 6%;
   right: 6%;
@@ -2060,7 +2161,7 @@ html.is-loading:not(.is-revealing) .hero :is(.hero-in, .hero-pop, .split-char, .
 .gcard-handle {
   position: relative;
   font-family: var(--font-display);
-  font-size: clamp(1.2rem, 2.1vw, 1.9rem);
+  font-size: 9.5cqi;
   font-weight: 700;
 }
 

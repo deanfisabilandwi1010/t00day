@@ -33,7 +33,7 @@ const shot = (page, name) => page.screenshot({ path: `${out}/${name}.jpg`, type:
   await shot(page, "d-menu-all");
 
   // Dialog detail dengan keyboard
-  const card = page.locator(".card", { hasText: "Dirty Tooday Coffe" }).locator(".card-hit");
+  const card = page.locator(".card", { hasText: "Dirty Tooday Coffee" }).locator(".card-hit");
   await card.focus();
   await page.keyboard.press("Enter");
   await page.waitForTimeout(500);
@@ -47,7 +47,7 @@ const shot = (page, name) => page.screenshot({ path: `${out}/${name}.jpg`, type:
   check("scroll halaman tidak terkunci setelah tutup", (await page.evaluate(() => document.documentElement.style.overflow)) === "");
 
   // Simpan + ringkasan
-  await page.locator(".card", { hasText: "Dirty Tooday Coffe" }).locator(".card-add").click();
+  await page.locator(".card", { hasText: "Dirty Tooday Coffee" }).locator(".card-add").click();
   const matchaAdd = page.locator(".card", { has: page.locator(".card-name", { hasText: /^Matcha Latte$/ }) }).locator(".card-add");
   await matchaAdd.click();
   await matchaAdd.click();

@@ -1,7 +1,7 @@
 [
   {
     "id": "hi-tooday-coffe",
-    "name": "Hi Tooday Coffe",
+    "name": "Hi Tooday Coffee",
     "sourceName": "Hi Tooday Coffe",
     "category": "Coffee",
     "price": 22000,
@@ -20,7 +20,7 @@
   },
   {
     "id": "good-tooday-coffe",
-    "name": "Good Tooday Coffe",
+    "name": "Good Tooday Coffee",
     "sourceName": "Good Tooday Coffe",
     "category": "Coffee",
     "price": 25000,
@@ -39,7 +39,7 @@
   },
   {
     "id": "out-after-drak",
-    "name": "Out After Drak",
+    "name": "Oat After Dark",
     "sourceName": "Out After Drak",
     "category": "Coffee",
     "price": 28000,
@@ -58,7 +58,7 @@
   },
   {
     "id": "dirty-tooday-coffe",
-    "name": "Dirty Tooday Coffe",
+    "name": "Dirty Tooday Coffee",
     "sourceName": "Dirty Tooday Coffe",
     "category": "Coffee",
     "price": 20000,
@@ -74,7 +74,7 @@
   },
   {
     "id": "biscoff-coffe-latte",
-    "name": "Biscoff Coffe Latte",
+    "name": "Biscoff Coffee Latte",
     "sourceName": "Biscoff Coffe Latte",
     "category": "Coffee",
     "price": 30000,
@@ -108,7 +108,7 @@
   },
   {
     "id": "matcha-out-latte",
-    "name": "Matcha Out Latte",
+    "name": "Matcha Oat Latte",
     "sourceName": "Matcha Out Latte",
     "category": "Matcha",
     "price": 40000,
@@ -156,7 +156,7 @@
   },
   {
     "id": "choco-hazelnat",
-    "name": "Choco Hazelnat",
+    "name": "Choco Hazelnut",
     "sourceName": "Choco Hazelnat",
     "category": "Non-Coffee",
     "price": 18000,
@@ -188,7 +188,7 @@
   },
   {
     "id": "lycee-yakult",
-    "name": "Lycee Yakult",
+    "name": "Lychee Yakult",
     "sourceName": "Lycee Yakult",
     "category": "Non-Coffee",
     "price": 16000,
@@ -220,7 +220,7 @@
   },
   {
     "id": "butertteok",
-    "name": "Butertteok (4 pcs)",
+    "name": "ButterTteok (4 pcs)",
     "sourceName": "Butertteok (4psc)",
     "category": "Cemal-cemil",
     "price": 20000,

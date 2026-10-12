@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import Image from "next/image";
 import { brand } from "@/data/brand";
 import { gsap, MQ } from "@/lib/motion";
@@ -11,30 +11,35 @@ import { Mascot } from "@/components/ui/Mascot";
 const G = "/assets/tooday/gallery";
 const A = "/assets/tooday";
 
-type Card =
-  | { kind: "photo"; src: string; w: number; h: number; alt: string; tall?: boolean }
-  | { kind: "slogan" | "pairing" | "handle"; tall?: boolean };
+type Card = { caption: string } & (
+  | { kind: "photo"; src: string; w: number; h: number; alt: string }
+  | { kind: "slogan" | "pairing" | "handle" }
+);
 
-// Selang-seling foto dokumentasi asli dan kartu merek; kartu "tall" membuat ritme tinggi-rendah.
+// Foto dokumentasi dan materi asli Tooday, diselingi kartu merek. Semua tampil sebagai polaroid berukuran sama.
 const CARDS: Card[] = [
-  { kind: "photo", src: `${G}/matcha-latte.webp`, w: 900, h: 1200, alt: "Foto asli: matcha latte Tooday di latar hijau zaitun", tall: true },
-  { kind: "photo", src: `${G}/buttertteok-box.webp`, w: 900, h: 1200, alt: "Foto asli: empat ButterTteok dalam kotak kuning di samping kantong kertas berlabel Tooday" },
-  { kind: "slogan", tall: true },
-  { kind: "photo", src: `${A}/editorial/brand-collage-original.webp`, w: 1254, h: 1254, alt: "Materi promosi Tooday: tujuh cup minuman dan ButterTteok di latar hijau" },
-  { kind: "photo", src: `${A}/editorial/storefront-original.webp`, w: 1200, h: 1600, alt: "Foto asli: tampak depan outlet Tooday Coffee di malam hari", tall: true },
-  { kind: "photo", src: `${G}/fruitpunch-yakult.webp`, w: 900, h: 1200, alt: "Foto asli: fruitpunch Yakult Tooday berwarna merah muda" },
-  { kind: "pairing", tall: true },
-  { kind: "photo", src: `${G}/americano.webp`, w: 900, h: 1200, alt: "Foto asli: americano dingin Tooday" },
-  { kind: "photo", src: `${G}/mango-yakult.webp`, w: 900, h: 1200, alt: "Foto asli: mango Yakult Tooday berwarna kuning", tall: true },
-  { kind: "handle" },
-  { kind: "photo", src: `${G}/dark-choco.webp`, w: 900, h: 1200, alt: "Foto asli: minuman cokelat gelap Tooday", tall: true },
+  { kind: "photo", caption: "Outlet Tooday", src: `${A}/editorial/storefront-original.webp`, w: 1200, h: 1600, alt: "Foto asli: tampak depan outlet Tooday Coffee di malam hari dengan tiga bangku merah" },
+  { kind: "photo", caption: "Matcha Latte", src: `${G}/matcha-latte.webp`, w: 900, h: 1200, alt: "Foto asli: matcha latte Tooday di latar hijau zaitun" },
+  { kind: "photo", caption: "Poster ButterTteok", src: `${A}/editorial/buttertteok-poster-original.webp`, w: 1132, h: 1600, alt: "Poster Tooday: tumpukan ButterTteok di latar merah dengan tulisan Butter Tteok" },
+  { kind: "slogan", caption: "Halo dari Tooday!" },
+  { kind: "photo", caption: "ButterTteok, 4 pcs", src: `${G}/buttertteok-box.webp`, w: 900, h: 1200, alt: "Foto asli: empat ButterTteok dalam kotak kuning di samping kantong kertas berlabel Tooday" },
+  { kind: "photo", caption: "Semua kumpul", src: `${A}/editorial/brand-collage-original.webp`, w: 1254, h: 1254, alt: "Materi promosi Tooday: tujuh cup minuman dan ButterTteok di latar hijau" },
+  { kind: "photo", caption: "Fruitpunch Yakult", src: `${G}/fruitpunch-yakult.webp`, w: 900, h: 1200, alt: "Foto asli: fruitpunch Yakult Tooday berwarna merah muda" },
+  { kind: "pairing", caption: "Teman ngopi" },
+  { kind: "photo", caption: "Americano", src: `${G}/americano.webp`, w: 900, h: 1200, alt: "Foto asli: americano dingin Tooday" },
+  { kind: "photo", caption: "Mango Yakult", src: `${G}/mango-yakult.webp`, w: 900, h: 1200, alt: "Foto asli: mango Yakult Tooday berwarna kuning" },
+  { kind: "handle", caption: "Sampai ketemu!" },
+  { kind: "photo", caption: "Dark Choco", src: `${G}/dark-choco.webp`, w: 900, h: 1200, alt: "Foto asli: minuman cokelat gelap Tooday" },
 ];
+
+// Kemiringan tiap polaroid di tali, berulang.
+const TILTS = [-3, 2, -1.5, 3, -2.5, 1.5];
 
 /** Kecepatan dasar strip dalam px per detik. */
 const SPEED = 46;
 
 function CardView({ card }: { card: Card }) {
-  const size = "(min-width: 1024px) 26vw, 62vw";
+  const size = "(min-width: 1024px) 22vw, 56vw";
 
   if (card.kind === "photo") {
     return <Image src={card.src} alt={card.alt} width={card.w} height={card.h} sizes={size} draggable={false} />;
@@ -79,7 +84,7 @@ function CardView({ card }: { card: Card }) {
 }
 
 /**
- * Strip galeri yang berjalan sendiri dan bisa diseret. Tanpa JS atau pada reduced-motion,
+ * Jemuran polaroid: foto berukuran sama dijepit di tali, berjalan sendiri dan bisa diseret. Tanpa JS atau pada reduced-motion,
  * strip menjadi daftar yang digulir manual (kelas .is-live tidak pernah terpasang).
  */
 export function Gallery() {
@@ -173,8 +178,18 @@ export function Gallery() {
   const group = (hidden: boolean) => (
     <ul className="gallery-group" aria-hidden={hidden || undefined}>
       {CARDS.map((card, index) => (
-        <li key={index} className={`gallery-item ${card.tall ? "gallery-item--tall" : ""}`}>
-          <CardView card={card} />
+        <li
+          key={index}
+          className="polaroid"
+          style={{ "--tilt": `${TILTS[index % TILTS.length]}deg`, "--delay": `${(index % 5) * -0.7}s` } as CSSProperties}
+        >
+          <span className="polaroid-pin" aria-hidden="true" />
+          <div className="polaroid-swing">
+            <div className="polaroid-photo">
+              <CardView card={card} />
+            </div>
+            <p className="polaroid-caption">{card.caption}</p>
+          </div>
         </li>
       ))}
     </ul>
@@ -185,7 +200,7 @@ export function Gallery() {
       <div className="gallery-head">
         <SplitTitle id="gallery-title" className="display-md" text="Tooday, apa adanya." />
         <p data-reveal>
-          Foto dan materi asli dari Tooday, diselingi sapaan dari maskotnya. Seret untuk melihat lebih cepat, lalu
+          Foto dan materi asli dari Tooday, dijepit satu-satu di tali. Seret untuk melihat lebih cepat, lalu
           intip kabar terbaru di{" "}
           <a href={brand.instagramUrl} target="_blank" rel="noreferrer" className="inline-link">
             {brand.instagramHandle}

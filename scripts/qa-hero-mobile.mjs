@@ -11,6 +11,7 @@ const browser = await chromium.launch({ channel: "msedge" });
 for (const width of [320, 360, 390, 430, 768]) {
   const context = await browser.newContext({ viewport: { width, height: 760 }, hasTouch: true, isMobile: width < 768 });
   const page = await context.newPage();
+  await page.addInitScript(() => sessionStorage.setItem("tooday-intro", "1"));
   await page.goto(base, { waitUntil: "networkidle" });
   await page.waitForTimeout(1500);
   const gap = await page.evaluate(() => {

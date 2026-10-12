@@ -13,6 +13,7 @@ const shot = (page, name) => page.screenshot({ path: `${out}/${name}.jpg`, type:
 // ---------- Desktop ----------
 {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await page.addInitScript(() => sessionStorage.setItem("tooday-intro", "1"));
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => message.type() === "error" && errors.push(message.text()));
@@ -105,6 +106,7 @@ const shot = (page, name) => page.screenshot({ path: `${out}/${name}.jpg`, type:
 {
   const context = await browser.newContext({ viewport: { width: 390, height: 760 }, hasTouch: true, isMobile: true });
   const page = await context.newPage();
+  await page.addInitScript(() => sessionStorage.setItem("tooday-intro", "1"));
   await page.goto(base, { waitUntil: "networkidle" });
   await page.waitForTimeout(1200);
   await shot(page, "m-hero");
@@ -149,6 +151,7 @@ const shot = (page, name) => page.screenshot({ path: `${out}/${name}.jpg`, type:
 {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
   const page = await context.newPage();
+  await page.addInitScript(() => sessionStorage.setItem("tooday-intro", "1"));
   await page.goto(base, { waitUntil: "networkidle" });
   await page.waitForTimeout(600);
   const state = await page.evaluate(() => ({
@@ -168,6 +171,7 @@ const shot = (page, name) => page.screenshot({ path: `${out}/${name}.jpg`, type:
 {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, javaScriptEnabled: false });
   const page = await context.newPage();
+  await page.addInitScript(() => sessionStorage.setItem("tooday-intro", "1"));
   await page.goto(base, { waitUntil: "load" });
   const text = await page.locator("#menu").innerText();
   check("tanpa JS: menu dan harga terbaca", text.includes("Hi Tooday Coffe") && text.includes("Rp22.000"));

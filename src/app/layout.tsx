@@ -39,8 +39,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="id" className={`${fredoka.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <head>
-        {/* Menandai JS aktif sebelum paint, agar state awal animasi tidak berkedip dan konten tetap tampil tanpa JS. */}
-        <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js');setTimeout(function(){if(!window.__toodayReveal)document.documentElement.classList.remove('js')},4000)" }} />
+        {/* Menandai JS aktif sebelum paint, agar state awal animasi tidak berkedip dan konten tetap tampil tanpa JS.
+            Juga memasang is-loading untuk layar pembuka (sekali per sesi, tidak pada reduced-motion);
+            bila bundel gagal berjalan dalam 4 detik, kedua kelas dilepas agar halaman tetap terbuka. */}
+        <script dangerouslySetInnerHTML={{ __html: "var d=document.documentElement;d.classList.add('js');try{if(!sessionStorage.getItem('tooday-intro')&&!matchMedia('(prefers-reduced-motion: reduce)').matches)d.classList.add('is-loading')}catch(e){}setTimeout(function(){if(!window.__toodayReveal)d.classList.remove('js','is-loading')},4000)" }} />
       </head>
       <body>{children}</body>
     </html>

@@ -1,3 +1,4 @@
+import { Loader } from "@/components/motion/Loader";
 import { RevealObserver } from "@/components/motion/RevealObserver";
 import { SmoothScroll } from "@/components/motion/SmoothScroll";
 import { OrderProvider } from "@/components/order/OrderProvider";
@@ -18,6 +19,7 @@ const RIBBON = ["Coffee", "Matcha", "Butter Tteok", "Goood Days"];
 export default function Home() {
   return (
     <OrderProvider>
+      <Loader />
       <SmoothScroll />
       <RevealObserver />
       <a href="#main" className="skip-link">

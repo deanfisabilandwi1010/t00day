@@ -14,6 +14,7 @@ for (const width of [360, 390, 768, 1024, 1440]) {
   const height = width < 768 ? 760 : 900;
   const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 1024, isMobile: width < 768 });
   const page = await context.newPage();
+  await page.addInitScript(() => sessionStorage.setItem("tooday-intro", "1"));
   page.on("console", (message) => {
     if (message.type() === "error") problems.push(`[${width}] console: ${message.text()}`);
   });
@@ -45,7 +46,7 @@ for (const width of [360, 390, 768, 1024, 1440]) {
         const rect = element.getBoundingClientRect();
         return rect.width > 0 && (rect.right > doc.clientWidth + 1 || rect.left < -1);
       })
-      .filter((element) => !element.closest(".marquee, .gallery-strip, .menu-filters, .hero, .featured, .story, .pill, dialog"))
+      .filter((element) => !element.closest(".marquee, .gallery-viewport, .menu-filters, .hero, .featured, .story, .pill, dialog"))
       .slice(0, 8)
       .map((element) => `${element.tagName}.${element.className}`);
     const broken = [...document.images].filter((image) => image.complete && image.naturalWidth === 0).map((image) => image.src);

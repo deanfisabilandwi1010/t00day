@@ -9,10 +9,12 @@ const read = (page) =>
     body: getComputedStyle(document.body).cursor,
     link: getComputedStyle(document.querySelector(".pill")).cursor,
     button: getComputedStyle(document.querySelector(".card-add")).cursor,
-    gallery: getComputedStyle(document.querySelector(".gallery-strip")).cursor,
+    gallery: getComputedStyle(document.querySelector(".gallery-viewport")).cursor,
   }));
 
 const desktop = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+
+await desktop.addInitScript(() => sessionStorage.setItem("tooday-intro", "1"));
 await desktop.goto(base, { waitUntil: "networkidle" });
 console.log("desktop", JSON.stringify(await read(desktop), null, 1));
 for (const file of ["tooday-default.png", "tooday-default@2x.png", "tooday-pointer.png", "tooday-pointer@2x.png"]) {
@@ -22,6 +24,7 @@ for (const file of ["tooday-default.png", "tooday-default@2x.png", "tooday-point
 
 const context = await browser.newContext({ viewport: { width: 390, height: 760 }, hasTouch: true, isMobile: true });
 const mobile = await context.newPage();
+await mobile.addInitScript(() => sessionStorage.setItem("tooday-intro", "1"));
 await mobile.goto(base, { waitUntil: "networkidle" });
 console.log("touch", JSON.stringify(await read(mobile)));
 

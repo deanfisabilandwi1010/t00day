@@ -41,6 +41,8 @@ export function CategoryRail() {
     const mm = gsap.matchMedia();
 
     mm.add(`${MQ.motionOk} and ${MQ.desktop}`, () => {
+      // Tata letak menempel dipasang oleh komponen ini sendiri, tepat sebelum GSAP mengukurnya.
+      section.classList.add("is-pinned");
       const tween = gsap.to(track, {
         // Lebar panel = lebar area tampil (tanpa scrollbar), jadi panel berikutnya tidak mengintip.
         x: () => -(track.scrollWidth - track.clientWidth),
@@ -62,6 +64,7 @@ export function CategoryRail() {
         tween.kill();
         gsap.set(track, { clearProps: "transform" });
         section.style.removeProperty("--p");
+        section.classList.remove("is-pinned");
       };
     });
 

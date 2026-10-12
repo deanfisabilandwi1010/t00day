@@ -1757,13 +1757,14 @@ html.is-loading:not(.is-revealing) .hero :is(.hero-in, .hero-pop, .split-char, .
   display: none;
 }
 
-/* Desktop dengan JS dan motion aktif: seksi menempel, GSAP menggeser .rail-track. */
+/* Desktop dengan motion aktif: CategoryRail memasang .is-pinned, lalu GSAP menggeser .rail-track.
+   Tidak bergantung pada kelas di <html>, supaya tetap benar bila kelas itu hilang. */
 @media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
-  html.js .rail {
+  .rail.is-pinned {
     height: 340vh;
   }
 
-  html.js .rail-sticky {
+  .rail.is-pinned .rail-sticky {
     position: sticky;
     top: 0;
     height: 100vh;
@@ -1771,7 +1772,7 @@ html.is-loading:not(.is-revealing) .hero :is(.hero-in, .hero-pop, .split-char, .
     overflow: hidden;
   }
 
-  html.js .rail-track {
+  .rail.is-pinned .rail-track {
     gap: 0;
     width: 100%;
     height: 100%;
@@ -1780,7 +1781,7 @@ html.is-loading:not(.is-revealing) .hero :is(.hero-in, .hero-pop, .split-char, .
     will-change: transform;
   }
 
-  html.js .rail-panel {
+  .rail.is-pinned .rail-panel {
     flex: 0 0 100%;
     grid-template-columns: minmax(0, 11fr) minmax(0, 9fr);
     align-content: center;
@@ -1793,39 +1794,39 @@ html.is-loading:not(.is-revealing) .hero :is(.hero-in, .hero-pop, .split-char, .
     border-radius: 0;
   }
 
-  html.js .rail-title {
+  .rail.is-pinned .rail-title {
     font-size: clamp(2.8rem, 5.2vw, 5.6rem);
   }
 
   /* Kata raksasa bergeser lebih lambat dari panel, memberi kedalaman. */
-  html.js .rail-word {
+  .rail.is-pinned .rail-word {
     bottom: 0.1em;
     left: 2vw;
     transform: translateX(calc(var(--p) * 18vw));
   }
 
-  html.js .rail-visual {
+  .rail.is-pinned .rail-visual {
     height: min(60vh, 640px);
   }
 
-  html.js .rail-cup {
+  .rail.is-pinned .rail-cup {
     height: 100%;
     rotate: calc((var(--p) - 0.5) * -8deg);
   }
 
-  html.js .rail-visual--2 .rail-cup {
+  .rail.is-pinned .rail-visual--2 .rail-cup {
     rotate: calc((var(--n) - 0.5) * 14deg + (var(--p) - 0.5) * -6deg);
   }
 
-  html.js .rail-cup img {
+  .rail.is-pinned .rail-cup img {
     object-position: 50% 50%;
   }
 
-  html.js .rail-hint {
+  .rail.is-pinned .rail-hint {
     display: none;
   }
 
-  html.js .rail-progress {
+  .rail.is-pinned .rail-progress {
     position: absolute;
     right: 0;
     bottom: 28px;

@@ -7,9 +7,9 @@
     "price": 22000,
     "currency": "IDR",
     "description": "Kopi susu basic.",
-    "image": null,
-    "imagePng": null,
-    "imageMatchStatus": "unconfirmed",
+    "image": "/assets/tooday/products/coffee-layered.webp",
+    "imagePng": "/assets/tooday/products/coffee-layered.png",
+    "imageMatchStatus": "placeholder-owner-approved",
     "candidateImages": [
       "coffee-layered",
       "coffee-brown-mixed"
@@ -26,9 +26,9 @@
     "price": 25000,
     "currency": "IDR",
     "description": "Kopi susu strong.",
-    "image": null,
-    "imagePng": null,
-    "imageMatchStatus": "unconfirmed",
+    "image": "/assets/tooday/products/coffee-layered.webp",
+    "imagePng": "/assets/tooday/products/coffee-layered.png",
+    "imageMatchStatus": "placeholder-owner-approved",
     "candidateImages": [
       "coffee-layered",
       "coffee-brown-mixed"
@@ -45,9 +45,9 @@
     "price": 28000,
     "currency": "IDR",
     "description": "Kopi susu outside — istilah sesuai menu sumber; perlu konfirmasi.",
-    "image": null,
-    "imagePng": null,
-    "imageMatchStatus": "unconfirmed",
+    "image": "/assets/tooday/products/coffee-layered.webp",
+    "imagePng": "/assets/tooday/products/coffee-layered.png",
+    "imageMatchStatus": "placeholder-owner-approved",
     "candidateImages": [
       "coffee-layered",
       "coffee-brown-mixed"
@@ -80,9 +80,9 @@
     "price": 30000,
     "currency": "IDR",
     "description": "Varian kopi latte Biscoff.",
-    "image": null,
-    "imagePng": null,
-    "imageMatchStatus": "unconfirmed",
+    "image": "/assets/tooday/products/coffee-layered.webp",
+    "imagePng": "/assets/tooday/products/coffee-layered.png",
+    "imageMatchStatus": "placeholder-owner-approved",
     "candidateImages": [
       "coffee-brown-mixed"
     ],
@@ -114,9 +114,9 @@
     "price": 40000,
     "currency": "IDR",
     "description": "Varian matcha sesuai nama pada menu sumber; komposisi perlu konfirmasi.",
-    "image": null,
-    "imagePng": null,
-    "imageMatchStatus": "unconfirmed",
+    "image": "/assets/tooday/products/matcha-latte.webp",
+    "imagePng": "/assets/tooday/products/matcha-latte.png",
+    "imageMatchStatus": "placeholder-owner-approved",
     "candidateImages": [],
     "priceSource": "menu-original.jpg",
     "priceNeedsCurrentConfirmation": true,

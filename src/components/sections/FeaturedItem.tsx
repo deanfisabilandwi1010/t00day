@@ -14,7 +14,10 @@ export function FeaturedItem({ index, id, from }: { index: string; id: string; f
       <p className="featured-index" aria-hidden="true">
         {index}
       </p>
-      <h3 className="featured-name">{item.name}</h3>
+      <h3 className="featured-name">
+        {item.name}
+        {item.availability === false && <span className="out-badge">Habis</span>}
+      </h3>
       {item.description && <p className="featured-desc">{item.description}</p>}
       <button type="button" className="price-tag" onClick={() => openDetail(item.id)} aria-haspopup="dialog">
         {formatPrice(item.price)}

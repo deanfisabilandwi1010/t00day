@@ -185,6 +185,19 @@ await c.locator(".qo-card").first().waitFor();
 check("menu habis: label Lagi habis + CTA nonaktif", (await c.locator(".qo-card", { hasText: "Mango Yakult" }).innerText()).includes("Lagi habis") && (await c.getByRole("button", { name: "Mango Yakult tidak bisa dipesan" }).isDisabled()));
 await shot(c, "13-order-soldout-390");
 
+// Homepage: menu habis langsung terlihat tanpa diklik (kartu menu dan daftar panel kategori).
+const soldHome = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const sh = await soldHome.newPage();
+errorsOf(sh, errors);
+await sh.addInitScript(() => sessionStorage.setItem("tooday-intro", "1"));
+await sh.goto(base, { waitUntil: "networkidle" });
+await sh.locator(".rail-list button.is-out", { hasText: "Mango Yakult" }).waitFor({ timeout: 15000 });
+check("homepage: label Habis di daftar panel kategori", /^habis$/i.test((await sh.locator(".rail-list button.is-out .out-badge").first().innerText()).trim()));
+check("homepage: kartu menu habis berlabel dan tombol + nonaktif", (await sh.locator(".menu-grid .card", { hasText: "Mango Yakult" }).locator(".card-out").count()) === 1 && (await sh.getByRole("button", { name: "Mango Yakult lagi habis" }).isDisabled()));
+await sh.locator(".rail-list button.is-out", { hasText: "Mango Yakult" }).scrollIntoViewIfNeeded();
+await shot(sh, "28-home-soldout-rail-1440");
+await soldHome.close();
+
 await k.getByRole("switch", { name: /Terima order baru/ }).click();
 await c.getByRole("button", { name: "Tambah Dark Choco" }).click();
 await c.locator(".qo-sticky-btn").click();

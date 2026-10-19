@@ -2041,6 +2041,36 @@ html.is-loading:not(.is-revealing) .hero :is(.hero-in, .hero-pop, .split-char, .
   overflow: hidden;
 }
 
+/* Label "Habis" di panel kategori, Pilihan, dan Saran menikmati. Warna gelap terbaca di semua tema panel. */
+.out-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 10px;
+  border: 1.5px solid var(--color-cream);
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-cream);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.rail-list button.is-out .rail-dots {
+  opacity: 0.4;
+}
+
+.rail-list button.is-out .rail-price {
+  opacity: 0.5;
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
 .card-out {
   align-self: flex-start;
   padding: 2px 10px;

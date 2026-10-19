@@ -162,7 +162,7 @@ export function CategoryRail() {
                       <li key={item.id}>
                         <button
                           type="button"
-                          className={picked === item.id ? "is-picked" : undefined}
+                          className={[picked === item.id ? "is-picked" : "", item.availability === false ? "is-out" : ""].join(" ").trim() || undefined}
                           onClick={() => {
                             setPicked(item.id);
                             openDetail(item.id);
@@ -171,6 +171,7 @@ export function CategoryRail() {
                         >
                           <span className="rail-name">
                             {item.name}
+                            {item.availability === false && <span className="out-badge">Habis</span>}
                             <ArrowUpRight aria-hidden="true" className="rail-arrow" size={18} strokeWidth={3} />
                           </span>
                           <span className="rail-dots" aria-hidden="true" />

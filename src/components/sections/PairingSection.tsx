@@ -39,6 +39,7 @@ export function PairingSection() {
             {DRINK_IDS.map((id) => (
               <button key={id} type="button" className="chip" aria-pressed={drinkId === id} onClick={() => setDrinkId(id)}>
                 {find(id)?.name}
+                {find(id)?.availability === false && <span className="out-badge">Habis</span>}
               </button>
             ))}
           </div>
@@ -47,7 +48,7 @@ export function PairingSection() {
             {[drink, snack].map((item) => (
               <div key={item.id}>
                 <dt>{item.name}</dt>
-                <dd>{formatPrice(item.price)}</dd>
+                <dd>{item.availability === false ? <span className="out-badge">Habis</span> : formatPrice(item.price)}</dd>
               </div>
             ))}
           </dl>
@@ -55,6 +56,7 @@ export function PairingSection() {
           <div data-reveal>
             <PillButton
               icon={<Plus aria-hidden="true" size={18} strokeWidth={2.5} />}
+              disabled={drink.availability === false || snack.availability === false}
               onClick={() => {
                 add(drink.id, 1, stageRef.current);
                 add(snack.id, 1);

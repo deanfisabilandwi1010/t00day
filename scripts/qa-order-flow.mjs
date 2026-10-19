@@ -291,6 +291,94 @@ await desk.locator(".qo-card").first().waitFor();
 check("order 1440px: tanpa scroll horizontal", await noOverflow(desk));
 await shot(desk, "22-order-1440");
 
+// Pencatatan: kasir melihat total hari ini, tetapi tidak punya tab Laporan.
+await k.goto(`${base}/kasir`);
+await k.locator(".kasir-till-total").waitFor();
+const tillText = await k.locator(".kasir-till").innerText();
+check("kasir: total pembayaran hari ini tampil", /Rp[\d.]+/.test(tillText) && tillText.includes("transaksi"), tillText.replace(/\s+/g, " "));
+check("kasir: tab Laporan tidak tersedia untuk peran kasir", (await k.getByRole("tab", { name: "Laporan" }).count()) === 0);
+
+// Manager: laporan harian dan bulanan.
+const office = await browser.newContext({ viewport: { width: 1366, height: 900 } });
+const m = await office.newPage();
+errorsOf(m, errors);
+await m.goto(`${base}/kasir/login`);
+await m.locator("#kasir-email").fill(process.env.QA_MANAGER_EMAIL ?? "manager@tooday.local");
+await m.locator("#kasir-password").fill(process.env.QA_MANAGER_PASSWORD ?? "manager-lokal-123");
+await m.getByRole("button", { name: "Masuk" }).click();
+await m.waitForURL(/\/kasir$/);
+await m.locator(".kasir-till-total").waitFor();
+const tillTotal = (await m.locator(".kasir-till-total").innerText()).trim();
+await m.getByRole("tab", { name: "Laporan" }).click();
+await m.locator(".report-card--main dd").waitFor();
+check("manager: laporan harian = total tercatat hari ini", (await m.locator(".report-card--main dd").innerText()).trim() === tillTotal, tillTotal);
+check("manager: daftar transaksi harian tampil", (await m.locator(".report-section h3", { hasText: "Daftar transaksi" }).count()) === 1);
+await shot(m, "23-report-daily-1366", true);
+await m.getByRole("tab", { name: "Bulanan" }).click();
+await m.locator(".report-section h3", { hasText: "Per hari" }).waitFor();
+check("manager: laporan bulanan memuat tabel per hari", (await m.locator(".report-section--wide tbody tr").count()) >= 1);
+await shot(m, "24-report-monthly-1366", true);
+const download = m.waitForEvent("download");
+await m.getByRole("button", { name: "Unduh CSV" }).click();
+check("manager: CSV laporan terunduh", (await (await download).suggestedFilename()).startsWith("tooday-laporan-"));
+
+// Manager: kelola menu — section baru, menu baru lewat form, tampil di halaman pesan, lalu diarsipkan lagi.
+const sectionName = `Cemilan Uji ${Date.now().toString().slice(-5)}`;
+await m.getByRole("tab", { name: "Menu" }).click();
+await m.locator(".mm-section").first().waitFor();
+await shot(m, "25-menu-manager-1366", true);
+await m.getByRole("button", { name: "Section baru" }).click();
+await m.locator("#mm-section-name").fill(sectionName);
+await m.getByRole("button", { name: "Buat section" }).click();
+await m.locator(".mm-section-name", { hasText: sectionName }).waitFor();
+await m.getByRole("button", { name: `Tambah menu di ${sectionName}` }).click();
+await m.locator("#mm-name").fill("Tteok Keju Uji");
+await m.locator("#mm-price").fill("21000");
+await m.locator("#mm-desc").fill("Menu uji otomatis.");
+// Unggah foto asli (JPEG dari paket aset): dikecilkan di browser lalu disimpan di database.
+await m.locator(".mm-photo-upload input[type=file]").setInputFiles("asset/source-assets/WhatsApp Image 2026-10-12 at 10.59.45.jpeg");
+await m.locator(".mm-photo.is-on img.is-photo").waitFor({ timeout: 20000 });
+check("kelola menu: foto baru terunggah dan langsung terpilih", true);
+check("kelola menu: pratinjau mengikuti isian", (await m.locator(".mm-preview").innerText()).includes("Rp21.000"));
+await shot(m, "26-menu-item-form-1366");
+await m.getByRole("button", { name: "Tambahkan menu" }).click();
+await m.locator(".mm-item-name", { hasText: "Tteok Keju Uji" }).waitFor();
+const guestMenu = await office.newPage();
+await guestMenu.goto(`${base}/order?outlet=tooday-main`);
+await guestMenu.locator(".qo-section-title", { hasText: sectionName }).waitFor();
+check("kelola menu: section & menu baru tampil di /order", (await guestMenu.locator(".qo-card", { hasText: "Tteok Keju Uji" }).innerText()).includes("Rp21.000"));
+await guestMenu.close();
+
+// Homepage ikut data Kelola menu: filter, kartu, dan panel kategori untuk section baru; detail tetap bisa dibuka.
+const homeLive = await office.newPage();
+errorsOf(homeLive, errors);
+await homeLive.addInitScript(() => sessionStorage.setItem("tooday-intro", "1"));
+await homeLive.goto(base, { waitUntil: "networkidle" });
+await homeLive.locator(".menu-filters .chip", { hasText: sectionName }).waitFor({ timeout: 15000 });
+await homeLive.locator(".menu-filters .chip", { hasText: sectionName }).click();
+const liveCard = homeLive.locator(".menu-grid .card", { hasText: "Tteok Keju Uji" });
+check("homepage: filter section baru menampilkan menu baru", (await homeLive.locator(".menu-grid .card").count()) === 1 && (await liveCard.innerText()).includes("Rp21.000"));
+check("homepage: foto unggahan tampil di kartu", (await liveCard.locator("img.is-photo").count()) === 1);
+check("homepage: panel kategori untuk section baru", (await homeLive.locator(".rail-panel", { hasText: sectionName }).count()) === 1);
+await liveCard.locator(".card-hit").click();
+await homeLive.locator("#product-dialog-title", { hasText: "Tteok Keju Uji" }).waitFor();
+await homeLive.getByRole("button", { name: /Masukkan ke Pilihanku/ }).click();
+await homeLive.waitForTimeout(500);
+check("homepage: menu baru bisa disimpan ke Pilihanku", (await homeLive.locator(".order-count").innerText()).trim() !== "0");
+await homeLive.locator("#menu").scrollIntoViewIfNeeded();
+await shot(homeLive, "27-home-live-section-1366");
+await homeLive.close();
+await m.getByRole("button", { name: `Arsipkan section ${sectionName}` }).click();
+// Tunggu kartu section benar-benar hilang (daftar arsip bisa sudah ada dari putaran uji sebelumnya).
+await m.locator(".mm-section-name", { hasText: sectionName }).waitFor({ state: "detached" });
+check("kelola menu: section diarsipkan pindah ke daftar arsip", (await m.locator(".mm-section-name", { hasText: sectionName }).count()) === 0);
+const afterArchive = await office.newPage();
+await afterArchive.goto(`${base}/order?outlet=tooday-main`);
+await afterArchive.locator(".qo-card").first().waitFor();
+check("kelola menu: section diarsipkan hilang dari /order", (await afterArchive.locator(".qo-section-title", { hasText: sectionName }).count()) === 0);
+await afterArchive.close();
+
+
 // Kartu QR siap cetak (halaman staf)
 await k.goto(`${base}/kasir/qr?outlet=tooday-main`);
 await k.locator(".qr-code svg").waitFor();

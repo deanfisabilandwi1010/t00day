@@ -80,6 +80,12 @@ Aplikasi sengaja tidak punya tombol untuk membatalkan atau mengubah pesanan yang
 3. Lanjutkan status pesanan seperti biasa (atau **Selesaikan** bila sudah ditangani), jangan dibiarkan menggantung di layar.
 4. Pengelola mencocokkan buku koreksi dengan **Riwayat** (total pembayaran tercatat per tanggal) saat tutup kas.
 
+## Total dan laporan
+
+- Banner hitam di atas daftar menunjukkan **Pembayaran tercatat hari ini** dan berapa yang kamu terima sendiri. Angka ini hanya berisi pembayaran yang sudah kamu konfirmasi; pesanan belum dibayar tidak dihitung.
+- **Pengelola** punya tab **Laporan**: pilih **Harian** (tanggal) atau **Bulanan**, lalu **Unduh CSV** atau **Cetak** untuk arsip.
+- **Pengelola** juga punya **Kelola menu** di tab **Menu**: tambah section (mis. "Minuman Dingin"), tombol **+ Tambah menu di …** untuk menu baru, ubah harga/foto/deskripsi (foto bisa dipilih dari foto produk atau **Unggah** foto baru dari HP/laptop), urutkan dengan panah, dan **Arsipkan** menu atau section yang tidak dijual lagi. Perubahan harga hanya berlaku untuk pesanan baru.
+
 ## Tutup shift
 
 1. Matikan **Terima order baru**.

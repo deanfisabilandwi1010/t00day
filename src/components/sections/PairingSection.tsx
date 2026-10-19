@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { Plus } from "lucide-react";
-import { getItem } from "@/data/menu";
+import { useLiveMenu } from "@/data/live-menu";
 import { formatPrice } from "@/lib/format";
 import { useOrder } from "@/components/order/OrderProvider";
 import { SplitTitle } from "@/components/motion/SplitTitle";
@@ -18,8 +18,9 @@ export function PairingSection() {
   const [drinkId, setDrinkId] = useState(DRINK_IDS[0]);
   const { add } = useOrder();
   const stageRef = useRef<HTMLDivElement>(null);
-  const snack = getItem("butertteok");
-  const drink = getItem(drinkId);
+  const { find } = useLiveMenu();
+  const snack = find("butertteok")!;
+  const drink = find(drinkId)!;
 
   return (
     <section id="pairing" className="pairing" aria-labelledby="pairing-title">
@@ -37,7 +38,7 @@ export function PairingSection() {
           <div className="pairing-picker" role="group" aria-label="Pilih minuman pendamping" data-reveal="left">
             {DRINK_IDS.map((id) => (
               <button key={id} type="button" className="chip" aria-pressed={drinkId === id} onClick={() => setDrinkId(id)}>
-                {getItem(id).name}
+                {find(id)?.name}
               </button>
             ))}
           </div>

@@ -10,6 +10,8 @@ import { formatPrice } from "@/lib/format";
 import { api, chime, formatTime, newKey, RequestError, useClock, useFeed } from "@/lib/order/client";
 import { STATUS_LABEL, type OrderEventView, type OrderStatus, type StaffAction, type StaffOrderView } from "@/lib/order/types";
 import { Mascot } from "@/components/ui/Mascot";
+import { MenuManager } from "./MenuManager";
+import { SalesReport } from "./SalesReport";
 import { Modal } from "@/components/ui/Modal";
 
 interface Snapshot {
@@ -17,6 +19,7 @@ interface Snapshot {
   feedVersion: number;
   outlet: { slug: string; name: string; timezone: string; acceptingOrders: boolean; counterReady: boolean; autoCallNext: boolean; paymentMethods: string[] };
   staff: { name: string; role: string };
+  today: { date: string; paidTotal: number; paidCount: number; mineTotal: number; mineCount: number };
   orders: StaffOrderView[];
   menu: { sku: string; name: string; category: string; price: number | null; available: boolean }[];
   serverTime: string;
@@ -34,7 +37,7 @@ interface Detail {
   payment: { amount: number; method: string | null; receivedBy: string; receivedAt: string } | null;
 }
 
-type Tab = "bayar" | "dibuat" | "siap" | "riwayat" | "menu";
+type Tab = "bayar" | "dibuat" | "siap" | "riwayat" | "menu" | "laporan";
 
 const EVENT_LABEL: Record<string, string> = {
   CREATED: "Order masuk",
@@ -249,6 +252,8 @@ export function KasirApp() {
   }
 
   const online = health === "live";
+  // Laporan hanya untuk manager; server juga menolak peran lain (403).
+  const isManager = me?.outlets.find((entry) => entry.slug === outlet)?.role === "manager";
   const digits = query.replace(/\D/g, "");
   const matches = (order: StaffOrderView) => !digits || String(order.queueNumber).includes(digits.replace(/^0+/, "") || "0");
 
@@ -377,6 +382,27 @@ export function KasirApp() {
       )}
 
       {snap && (
+        <section className="kasir-till" aria-label="Pencatatan pembayaran hari ini">
+          <div>
+            <p className="kasir-till-label">Pembayaran tercatat hari ini</p>
+            <p className="kasir-till-total tabular" aria-live="polite">
+              {formatPrice(snap.today.paidTotal)}
+            </p>
+          </div>
+          <p className="kasir-till-meta">
+            <span className="tabular">{snap.today.paidCount}</span> transaksi
+            <span aria-hidden="true"> · </span>
+            diterima olehmu <strong className="tabular">{formatPrice(snap.today.mineTotal)}</strong> (<span className="tabular">{snap.today.mineCount}</span>)
+          </p>
+          {isManager && (
+            <button type="button" className="kasir-chip kasir-till-link" onClick={() => setTab("laporan")}>
+              Lihat laporan
+            </button>
+          )}
+        </section>
+      )}
+
+      {snap && (
         <dl className="kasir-stats">
           <Stat label="Belum dibayar" value={unpaidCount} tone="red" />
           <Stat label="Menunggu dibuat" value={groups.production.filter((order) => order.status === "QUEUED").length} />
@@ -385,8 +411,8 @@ export function KasirApp() {
         </dl>
       )}
 
-      <div className="kasir-body">
-        <section className="kasir-list" aria-label="Daftar pesanan">
+      <div className={`kasir-body ${tab === "laporan" || (tab === "menu" && isManager) ? "kasir-body--wide" : ""}`}>
+        <section className="kasir-list" aria-label={tab === "laporan" ? "Laporan transaksi" : "Daftar pesanan"}>
           <div className="kasir-tabs" role="tablist" aria-label="Tahap">
             {(
               [
@@ -395,6 +421,7 @@ export function KasirApp() {
                 ["siap", "Siap", groups.ready.length],
                 ["riwayat", "Riwayat", null],
                 ["menu", "Menu", null],
+                ...(isManager ? ([["laporan", "Laporan", null]] as const) : []),
               ] as const
             ).map(([key, label, count]) => (
               <button key={key} type="button" role="tab" aria-selected={tab === key} className="kasir-tab" onClick={() => setTab(key)}>
@@ -404,7 +431,7 @@ export function KasirApp() {
             ))}
           </div>
 
-          {tab !== "menu" && tab !== "riwayat" && (
+          {tab !== "menu" && tab !== "riwayat" && tab !== "laporan" && (
             <label className="kasir-search">
               <Search aria-hidden="true" size={16} />
               <span className="sr-only">Cari kode pesanan</span>
@@ -449,12 +476,14 @@ export function KasirApp() {
             </>
           )}
           {snap && tab === "riwayat" && <History outlet={outlet} selectedId={selectedId} onSelect={setSelectedId} />}
-          {snap && tab === "menu" && (
+          {snap && tab === "menu" && !isManager && (
             <MenuAvailability menu={snap.menu} busy={busy} disabled={!online} onToggle={setAvailability} />
           )}
+          {tab === "menu" && isManager && <MenuManager outlet={outlet} onChanged={() => void refresh(true)} />}
+          {tab === "laporan" && isManager && <SalesReport outlet={outlet} />}
         </section>
 
-        <aside className="kasir-detail" aria-label="Rincian pesanan">
+        <aside className="kasir-detail" aria-label="Rincian pesanan" hidden={tab === "laporan" || (tab === "menu" && isManager)}>
           {selected ? (
             <OrderDetail
               order={selected}

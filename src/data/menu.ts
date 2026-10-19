@@ -10,7 +10,10 @@ export interface MenuItem {
   name: string;
   /** Ejaan persis seperti di papan menu sumber. */
   sourceName: string;
-  category: Category;
+  /** Section menu. Di data statis sama dengan nama kategori; di data live berupa id section. */
+  sectionId: string;
+  /** Nama section (Coffee, Matcha, … atau section baru dari Kelola menu). */
+  category: string;
   description: string | null;
   price: number | null;
   currency: "IDR";
@@ -30,6 +33,7 @@ export const menu: MenuItem[] = rawMenu.map((item) => ({
   slug: item.id,
   name: item.name,
   sourceName: item.sourceName,
+  sectionId: item.category,
   category: item.category as Category,
   description: PUBLIC_COPY[item.id]?.description ?? null,
   price: item.price,
@@ -51,6 +55,6 @@ export function getItem(id: string): MenuItem {
   return item;
 }
 
-export function byCategory(category: Category): MenuItem[] {
+export function byCategory(category: string): MenuItem[] {
   return menu.filter((item) => item.category === category);
 }

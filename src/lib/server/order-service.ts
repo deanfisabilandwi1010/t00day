@@ -25,7 +25,10 @@ export async function findOutlet(slug: string): Promise<OutletRow> {
 }
 
 /** Menu publik + konteks outlet/meja. Parameter meja dicocokkan dengan data aktif di server. */
-export async function publicMenu(slug: string, tableCode: string | null): Promise<{ outlet: OutletInfo; items: PublicMenuItem[]; feedVersion: number }> {
+export async function publicMenu(
+  slug: string,
+  tableCode: string | null,
+): Promise<{ outlet: OutletInfo; sections: { id: string; name: string }[]; items: PublicMenuItem[]; feedVersion: number }> {
   const outlet = await findOutlet(slug);
   let table: string | null = null;
   let tableInvalid = false;
@@ -35,12 +38,18 @@ export async function publicMenu(slug: string, tableCode: string | null): Promis
     if (row) table = row.code;
     else tableInvalid = true;
   }
+  // Hanya section dan menu yang aktif; urutan mengikuti pengaturan manager.
   const items = await db()<
-    { sku: string; name: string; category: string; description: string | null; price_rupiah: number | null; image_url: string | null; available: boolean; version: number }[]
+    { sku: string; name: string; section_id: string; category: string; description: string | null; price_rupiah: number | null; image_url: string | null; available: boolean; version: number }[]
   >`
-    select sku, name, category, description, price_rupiah, image_url, available, version
-    from tooday.menu_items where outlet_id = ${outlet.id} and active
-    order by sort_order, name`;
+    select i.sku, i.name, s.id as section_id, s.name as category, i.description, i.price_rupiah, i.image_url, i.available, i.version
+    from tooday.menu_items i join tooday.menu_sections s on s.id = i.section_id
+    where i.outlet_id = ${outlet.id} and i.active and s.active
+    order by s.sort_order, s.name, i.sort_order, i.name`;
+  const sections: { id: string; name: string }[] = [];
+  for (const item of items) {
+    if (sections.at(-1)?.id !== item.section_id) sections.push({ id: item.section_id, name: item.category });
+  }
   return {
     outlet: {
       slug: outlet.slug,
@@ -50,9 +59,11 @@ export async function publicMenu(slug: string, tableCode: string | null): Promis
       table,
       tableInvalid,
     },
+    sections,
     items: items.map((item) => ({
       sku: item.sku,
       name: item.name,
+      sectionId: item.section_id,
       category: item.category,
       description: item.description,
       price: item.price_rupiah,
@@ -191,9 +202,11 @@ export async function createOrder(guestId: string, input: CreateOrderInput): Pro
 
     // 2. Harga dan ketersediaan dari database; harga kiriman browser hanya pembanding.
     const skus = [...new Set(input.lines.map((line) => line.sku))];
+    // Menu di section yang diarsipkan dianggap tidak tersedia.
     const menu = await tx<{ id: string; sku: string; name: string; category: string; price_rupiah: number | null; active: boolean; available: boolean }[]>`
-      select id, sku, name, category, price_rupiah, active, available from tooday.menu_items
-      where outlet_id = ${locked.id} and sku = any(${skus}::text[])`;
+      select i.id, i.sku, i.name, s.name as category, i.price_rupiah, (i.active and s.active) as active, i.available
+      from tooday.menu_items i join tooday.menu_sections s on s.id = i.section_id
+      where i.outlet_id = ${locked.id} and i.sku = any(${skus}::text[])`;
     const bySku = new Map(menu.map((item) => [item.sku, item]));
 
     const unavailable = skus.filter((sku) => !bySku.get(sku)?.active || !bySku.get(sku)?.available);

@@ -365,6 +365,17 @@ html:has(.qo) {
   background: var(--color-paper);
 }
 
+/* Foto unggahan (berlatar) mengisi bingkai; foto produk Tooday tetap utuh. */
+.qo-card-media img.is-photo,
+.qo-detail-media img.is-photo,
+.mm-thumb img.is-photo,
+.mm-photo img.is-photo,
+.summary-thumb img.is-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 /* Seluruh kartu membuka detail; tombol Tambah tetap di atasnya. */
 .qo-card-hit {
   position: absolute;
@@ -1349,6 +1360,43 @@ html:has(.qo) {
   align-items: center;
 }
 
+/* Pencatatan hari ini: total rupiah yang sudah dikonfirmasi kasir. */
+.kasir-till {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  margin: 12px clamp(12px, 2vw, 24px) 0;
+  padding: 12px 18px;
+  border-radius: 18px;
+  background: var(--color-ink);
+  color: var(--color-cream);
+}
+
+.kasir-till-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.kasir-till-total {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.kasir-till-meta {
+  font-size: 0.92rem;
+}
+
+.kasir-till-link {
+  margin-left: auto;
+  border-color: var(--color-cream);
+}
+
 .kasir-stats {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1765,6 +1813,749 @@ html:has(.qo) {
     top: 12px;
     max-height: calc(100dvh - 24px);
     overflow-y: auto;
+  }
+}
+
+/* Laporan manager: memakai seluruh lebar, panel rincian pesanan disembunyikan. */
+@media (min-width: 900px) {
+  .kasir-body--wide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.report-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 16px;
+  margin: 12px 0 6px;
+}
+
+.report-mode {
+  display: flex;
+  gap: 6px;
+}
+
+.report-picker {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.report-picker input {
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1.5px solid color-mix(in srgb, var(--color-olive) 55%, transparent);
+  border-radius: 12px;
+  background: var(--color-paper);
+  font: inherit;
+}
+
+.report-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.report-body.is-loading {
+  opacity: 0.55;
+}
+
+.report-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.report-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.report-section {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--hair);
+  border-radius: 18px;
+  background: var(--color-paper);
+}
+
+.report-section h3 {
+  margin: 4px 0 8px;
+  font-weight: 700;
+}
+
+.report-section h3 + .report-table,
+.report-table + h3 {
+  margin-top: 8px;
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.report-table th,
+.report-table td {
+  padding: 7px 6px;
+  border-bottom: 1px dashed var(--hair);
+  text-align: left;
+  vertical-align: top;
+}
+
+.report-table thead th {
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.report-table tbody th {
+  font-weight: 600;
+}
+
+.report-table td.tabular,
+.report-table thead th:not(:first-child) {
+  text-align: right;
+}
+
+.report-table td.is-left,
+.report-table th.is-left {
+  text-align: left;
+}
+
+.report-table tfoot th,
+.report-table tfoot td {
+  border-bottom: 0;
+  font-weight: 700;
+}
+
+/* --- Laporan ceria: header ber-checker, kartu ubin warna menu, peringkat --- */
+.report-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 34px 18px 16px;
+  overflow: hidden;
+  border-radius: 24px;
+  background: var(--color-olive);
+  color: var(--color-cream);
+}
+
+.report-hero-checker {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 18px;
+  background: url("/assets/tooday/decor/checker-cream-red.svg") 0 0 / 18px 18px repeat-x;
+}
+
+.report-hero-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.report-hero .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #f6e39c;
+}
+
+.report-title {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.report-note {
+  margin-top: 6px;
+  max-width: 62ch;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.report-hero-mascot {
+  flex-shrink: 0;
+  width: clamp(76px, 10vw, 120px);
+  margin-bottom: -18px;
+}
+
+.report-card {
+  position: relative;
+  isolation: isolate;
+  padding: 14px 14px 12px;
+  border-radius: 18px;
+  color: var(--color-ink);
+}
+
+/* Lembar warna sedikit miring di belakang; angka dan teks tetap tegak. */
+.report-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 2px solid var(--color-ink);
+  border-radius: inherit;
+  background: var(--card, var(--color-paper));
+  rotate: var(--tilt, -1deg);
+}
+
+.report-card:nth-child(even) {
+  --tilt: 1deg;
+}
+
+.report-card dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.report-card dd {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.report-card--main {
+  grid-column: 1 / -1;
+  --card: var(--color-red);
+  color: var(--color-cream);
+}
+
+.report-card--main dd {
+  font-size: clamp(2rem, 5vw, 2.6rem);
+}
+
+.report-card--yellow {
+  --card: #f6e39c;
+}
+
+.report-card--green {
+  --card: #c9d6a6;
+}
+
+.report-card--pink {
+  --card: #f4c9c5;
+}
+
+.report-card--latte {
+  --card: #e3cfb4;
+}
+
+.report-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--color-olive);
+}
+
+.report-section--top {
+  border: 2px solid var(--color-olive);
+}
+
+.report-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-right: 8px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+
+.report-rank--1 {
+  border-color: var(--color-red);
+  background: var(--color-red);
+  color: var(--color-cream);
+}
+
+.report-rank--2 {
+  border-color: var(--color-olive);
+  background: var(--color-olive);
+  color: var(--color-cream);
+}
+
+.report-rank--3 {
+  background: #f6e39c;
+}
+
+.report-empty {
+  margin: 12px 0;
+  border: 2px dashed color-mix(in srgb, var(--color-olive) 40%, transparent);
+  border-radius: 20px;
+}
+
+@media (min-width: 640px) {
+  .report-cards {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .report-card--main {
+    grid-column: span 1;
+  }
+
+  .report-card--main dd {
+    font-size: 1.55rem;
+  }
+}
+
+@media (min-width: 1000px) {
+  .report-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .report-section--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+@media print {
+  .kasir > :not(.kasir-body),
+  .kasir-tabs,
+  .kasir-detail {
+    display: none !important;
+  }
+
+  .kasir,
+  .report-section {
+    background: #fff;
+  }
+
+  .report-hero {
+    background: #fff;
+    color: var(--color-ink);
+    border: 2px solid var(--color-olive);
+  }
+
+  .report-card::before {
+    rotate: none;
+  }
+
+  .report-section {
+    break-inside: avoid;
+  }
+}
+
+/* --- Kelola menu (manager) --- */
+.modal--wide {
+  width: min(880px, calc(100% - 24px));
+}
+
+.mm-hero {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 18px;
+  margin-top: 12px;
+  padding: 20px 18px;
+  overflow: hidden;
+  border-radius: 24px;
+  background: var(--color-olive);
+  color: var(--color-cream);
+}
+
+.mm-hero > div:first-child {
+  flex: 1 1 320px;
+}
+
+.mm-hero .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #f6e39c;
+}
+
+.mm-title {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mm-sub {
+  margin-top: 6px;
+  max-width: 60ch;
+  font-size: 0.92rem;
+  opacity: 0.9;
+}
+
+.mm-mascot {
+  width: 96px;
+  margin-bottom: -22px;
+}
+
+.mm-new {
+  box-shadow: 0 0 0 3px var(--color-cream);
+}
+
+.mm-flash {
+  min-height: 1.6em;
+  margin: 8px 0 2px;
+  font-weight: 700;
+  color: var(--color-olive);
+}
+
+.mm-section {
+  position: relative;
+  margin-top: 14px;
+  padding: 14px;
+  border: 2px solid var(--color-ink);
+  border-radius: 24px;
+  background: var(--tile, #f6e39c);
+}
+
+.mm-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.mm-section-name {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.mm-count {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-cream);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.mm-tools,
+.mm-item-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.mm-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 50%;
+  background: var(--color-paper);
+}
+
+.mm-icon:disabled {
+  opacity: 0.35;
+}
+
+.mm-icon--edit {
+  border-color: var(--color-red);
+  background: var(--color-red);
+  color: var(--color-cream);
+}
+
+.mm-items {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mm-item {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 10px;
+  border-radius: 18px;
+  background: var(--color-paper);
+}
+
+.mm-item .mm-item-tools {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+
+.mm-thumb {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 62px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--tile, #f6e39c) 70%, var(--color-cream));
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-olive);
+}
+
+.mm-thumb img {
+  width: auto;
+  height: 58px;
+}
+
+.mm-item-name {
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.mm-price {
+  font-weight: 700;
+  color: var(--color-red);
+}
+
+.mm-avail {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.mm-avail.is-on {
+  background: var(--color-olive);
+  color: var(--color-cream);
+}
+
+.mm-avail.is-off {
+  border: 2px solid var(--color-red);
+  background: var(--color-paper);
+  color: var(--color-red);
+}
+
+.mm-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 2.5px dashed var(--color-ink);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-paper) 55%, transparent);
+  font-weight: 700;
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s var(--ease);
+}
+
+.mm-add:hover:not(:disabled) {
+  background: var(--color-paper);
+}
+
+.mm-add:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.mm-add-plus {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-red);
+  color: var(--color-cream);
+}
+
+.mm-archived-items,
+.mm-archive {
+  margin-top: 12px;
+  font-size: 0.92rem;
+}
+
+.mm-archived-items summary,
+.mm-archive summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 700;
+}
+
+.mm-archived-items ul,
+.mm-archive ul {
+  display: grid;
+  gap: 6px;
+}
+
+.mm-archived-items li,
+.mm-archive li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-paper) 75%, transparent);
+}
+
+.mm-archive {
+  padding: 10px 14px;
+  border: 2px dashed var(--hair);
+  border-radius: 20px;
+}
+
+/* Form menu: dua kolom di layar lebar, pratinjau kartu seperti di halaman pesan. */
+.mm-form-grid {
+  display: grid;
+  gap: 8px 22px;
+}
+
+.mm-price-input {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid color-mix(in srgb, var(--color-olive) 55%, transparent);
+  border-radius: 14px;
+  background: var(--color-paper);
+}
+
+.mm-price-input span {
+  padding-left: 14px;
+  font-weight: 700;
+}
+
+.qo-field .mm-price-input input {
+  border: 0;
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+}
+
+.mm-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 10px;
+  font-weight: 700;
+}
+
+.mm-check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-olive);
+}
+
+.mm-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 8px;
+}
+
+.mm-photo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 68px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-olive) 10%, var(--color-cream));
+}
+
+.mm-photo img {
+  width: auto;
+  height: 62px;
+}
+
+.mm-photo input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.mm-photo.is-on {
+  border-color: var(--color-red);
+  box-shadow: 0 0 0 2px var(--color-red);
+}
+
+.mm-photo:has(input:focus-visible) {
+  outline: 3px solid var(--color-olive);
+  outline-offset: 2px;
+}
+
+.mm-photo-upload {
+  gap: 2px;
+  border: 2px dashed var(--color-red);
+  background: var(--color-paper);
+  color: var(--color-red);
+  cursor: pointer;
+}
+
+.mm-photo-upload.is-busy {
+  opacity: 0.6;
+}
+
+.mm-photo-upload-text {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.mm-photo-none {
+  color: var(--color-olive);
+}
+
+.mm-preview-label {
+  margin-top: 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+/* Ukuran tetap agar aturan kartu responsif di /order tidak membuat foto menutupi teks. */
+.qo-card.mm-preview {
+  margin-top: 6px;
+  grid-template-columns: 88px minmax(0, 1fr) auto;
+}
+
+.mm-preview .qo-card-media {
+  width: 88px;
+  height: 100px;
+}
+
+.mm-preview .qo-card-media img {
+  height: 94px;
+}
+
+.mm-archive-btn {
+  margin-left: auto;
+}
+
+@media (min-width: 720px) {
+  .mm-item {
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+  }
+
+  .mm-item .mm-item-tools {
+    grid-column: auto;
+  }
+
+  .mm-form-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 

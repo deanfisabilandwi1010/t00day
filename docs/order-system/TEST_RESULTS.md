@@ -1,14 +1,14 @@
 # Hasil uji — sistem pesanan QR
 
-Dijalankan 15 Oktober 2026 di Windows 10, Node 26.7, Microsoft Edge (Playwright 1.64), **build produksi** (`next build` + `next start`) dengan Postgres 17.10 lokal (`npm run db:local`). Bukan Supabase, bukan Netlify.
+Dijalankan ulang 19 Oktober 2026 (pertama 15 Oktober) di Windows 10, Node 26.7, Microsoft Edge (Playwright 1.64), **build produksi** (`next build` + `next start`) dengan Postgres 17.10 lokal (`npm run db:local`). Bukan Supabase, bukan Netlify.
 
 | Pemeriksaan | Perintah | Hasil |
 |---|---|---|
 | Typecheck | `npm run typecheck` | Lolos, 0 error |
 | Lint | `npm run lint` | Lolos, 0 error, 0 warning |
 | Build | `npm run build` | Lolos; route API dinamis, halaman pesanan/kasir/antrean statis + data dari API |
-| Integration test (HTTP + database) | `npm run test:api` | **29/29 lolos** |
-| Alur lintas sesi di browser | `npm run qa:order` | **46/46 lolos**, screenshot di `screenshots/` |
+| Integration test (HTTP + database) | `npm run test:api` | **36/36 lolos** (termasuk pencatatan, laporan, kelola menu, unggah foto) |
+| Alur lintas sesi di browser | `npm run qa:order` | **61/61 lolos** (termasuk unggah foto dan homepage mengikuti Kelola menu), screenshot di `screenshots/` |
 | Regresi homepage (skrip lama) | `node scripts/qa-interactions.mjs` | **26/26 lolos** |
 | Overflow homepage 360–1440 px | `node scripts/qa-screens.mjs` | `overflowX: 0` di semua lebar, tanpa gambar rusak atau error konsol. Di 1440 px skrip menandai 2 SVG coretan dekoratif sebagai "wide"; tidak menimbulkan scroll horizontal. Belum saya bandingkan apakah tanda ini sudah ada sebelum perubahan. |
 
@@ -63,6 +63,9 @@ Cara mengulang: `npm run db:local && npm run db:migrate && npm run db:seed -- --
 | `18-home-pilihanku-1440.png` | Homepage: Pilihanku dengan CTA "Pesan di outlet" |
 | `20-kasir-768.png`, `21-kasir-390.png`, `22-order-1440.png` | Tablet portrait, HP, desktop |
 | `19-qr-card.png` | Kartu QR siap cetak |
+| `23-report-daily-1366.png`, `24-report-monthly-1366.png` | Laporan harian dan bulanan (manager) |
+| `25-menu-manager-1366.png`, `26-menu-item-form-1366.png` | Kelola menu dan form menu baru (foto unggahan terpilih) dengan pratinjau |
+| `27-home-live-section-1366.png` | Homepage: section dan menu baru dari Kelola menu, dengan foto unggahan |
 
 ## Bug yang ditemukan dan diperbaiki selama pengujian
 

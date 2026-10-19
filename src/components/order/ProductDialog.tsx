@@ -1,13 +1,13 @@
 "use client";
 
 import { useRef, useState, type CSSProperties } from "react";
-import Image from "next/image";
 import { Plus } from "lucide-react";
 import type { MenuItem } from "@/data/menu";
 import { TILE } from "@/data/tiles";
 import { formatPrice } from "@/lib/format";
 import { Doodle } from "@/components/ui/Doodle";
 import { Mascot } from "@/components/ui/Mascot";
+import { MenuPhoto } from "@/components/ui/MenuPhoto";
 import { PillButton } from "@/components/ui/Pill";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Sheet } from "@/components/ui/Sheet";
@@ -45,14 +45,7 @@ function ProductDetail({ item, onClose }: { item: MenuItem; onClose: () => void 
         <Doodle shape="spark" animate="auto" className="detail-doodle--a" />
         <Doodle shape="loop" animate="auto" className="detail-doodle--b" />
         {item.image ? (
-          <Image
-            src={item.image}
-            alt={item.alt}
-            width={1086}
-            height={1448}
-            sizes="(min-width: 768px) 360px, 70vw"
-            className="detail-product"
-          />
+          <MenuPhoto src={item.image} alt={item.alt} sizes="(min-width: 768px) 360px, 70vw" className="detail-product" />
         ) : (
           <p className="detail-nophoto">
             <span aria-hidden="true">{item.category}</span>
@@ -93,12 +86,13 @@ function ProductDetail({ item, onClose }: { item: MenuItem; onClose: () => void 
           <QuantityStepper value={qty} onChange={setQty} label={item.name} />
           <PillButton
             icon={<Plus aria-hidden="true" size={18} strokeWidth={2.5} />}
+            disabled={item.availability === false}
             onClick={() => {
               add(item.id, qty, mediaRef.current);
               onClose();
             }}
           >
-            Masukkan ke Pilihanku
+            {item.availability === false ? "Lagi habis" : "Masukkan ke Pilihanku"}
           </PillButton>
         </div>
 

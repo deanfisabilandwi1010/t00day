@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import { menu, getItem, type MenuItem } from "@/data/menu";
+import type { MenuItem } from "@/data/menu";
+import { useLiveMenu } from "@/data/live-menu";
 import { cart, useCart } from "@/lib/order/cart";
 import { gsap, MQ } from "@/lib/motion";
 import { OrderSummary } from "./OrderSummary";
@@ -73,14 +74,13 @@ function flyToList(from: HTMLElement | null | undefined) {
   });
 }
 
-const KNOWN = new Set(menu.map((item) => item.id));
-
 /**
  * Pilihanku di homepage memakai keranjang yang sama dengan halaman /order (localStorage di perangkat ini).
  * Menyimpan ke Pilihanku tidak mengirim apa pun ke kasir; pengiriman hanya terjadi di /order setelah review.
  */
 export function OrderProvider({ children }: { children: ReactNode }) {
   const cartState = useCart();
+  const { find } = useLiveMenu();
   const [listOpen, setListOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -88,9 +88,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   const add = useCallback((id: string, qty = 1, from?: HTMLElement | null) => {
     cart.add(id, qty);
-    setAnnouncement(`${qty} ${getItem(id).name} ditambahkan ke pilihanmu.`);
+    setAnnouncement(`${qty} ${find(id)?.name ?? "Menu"} ditambahkan ke pilihanmu.`);
     flyToList(from);
-  }, []);
+  }, [find]);
 
   const setQty = useCallback((id: string, qty: number) => cart.setSkuQty(id, qty), []);
 
@@ -108,9 +108,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     // Baris dengan catatan berbeda (dibuat di /order) digabung per menu untuk tampilan ringkas homepage.
     const quantities = new Map<string, number>();
     for (const line of cartState.lines) {
-      if (KNOWN.has(line.sku)) quantities.set(line.sku, (quantities.get(line.sku) ?? 0) + line.qty);
+      if (find(line.sku)) quantities.set(line.sku, (quantities.get(line.sku) ?? 0) + line.qty);
     }
-    const lines = [...quantities].map(([id, qty]) => ({ item: getItem(id), qty }));
+    const lines = [...quantities].map(([id, qty]) => ({ item: find(id)!, qty }));
     return {
       lines,
       count: lines.reduce((sum, line) => sum + line.qty, 0),
@@ -121,12 +121,12 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       openList,
       openDetail,
     };
-  }, [cartState.lines, add, setQty, clear, openList, openDetail]);
+  }, [cartState.lines, find, add, setQty, clear, openList, openDetail]);
 
   return (
     <OrderContext.Provider value={value}>
       {children}
-      <ProductDialog item={detailId ? getItem(detailId) : null} open={detailOpen} onClose={() => setDetailOpen(false)} />
+      <ProductDialog item={detailId ? find(detailId) : null} open={detailOpen} onClose={() => setDetailOpen(false)} />
       <OrderSummary open={listOpen} onClose={() => setListOpen(false)} />
       <p className="sr-only" role="status" aria-live="polite">
         {announcement}

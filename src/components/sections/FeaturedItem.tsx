@@ -1,13 +1,13 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
-import { getItem } from "@/data/menu";
+import { useMenuItem } from "@/data/live-menu";
 import { formatPrice } from "@/lib/format";
 import { useOrder } from "@/components/order/OrderProvider";
 
 export function FeaturedItem({ index, id, from }: { index: string; id: string; from: "left" | "right" }) {
   const { openDetail } = useOrder();
-  const item = getItem(id);
+  const item = useMenuItem(id);
 
   return (
     <div className="featured-item" data-reveal={from}>

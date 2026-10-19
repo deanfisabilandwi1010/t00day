@@ -8,13 +8,15 @@ interface ModalProps {
   onClose: () => void;
   labelledBy: string;
   children: ReactNode;
+  /** Lebar untuk form dua kolom (mis. kelola menu). */
+  wide?: boolean;
 }
 
 /**
  * Dialog konfirmasi di tengah layar (kasir). <dialog> native menangani focus trap,
  * Escape, dan pengembalian fokus ke tombol pemicu.
  */
-export function Modal({ open, onClose, labelledBy, children }: ModalProps) {
+export function Modal({ open, onClose, labelledBy, children, wide = false }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export function Modal({ open, onClose, labelledBy, children }: ModalProps) {
   return (
     <dialog
       ref={ref}
-      className="modal"
+      className={`modal ${wide ? "modal--wide" : ""}`}
       aria-labelledby={labelledBy}
       onCancel={(event) => {
         event.preventDefault();

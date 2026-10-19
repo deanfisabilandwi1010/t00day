@@ -13,6 +13,7 @@ import {
 import type { StaffContext } from "./auth";
 import { bumpFeed, db, withOutletLock, type LockedOutlet, type Tx } from "./db";
 import { ApiError } from "./http";
+import { todayTotals } from "./report-service";
 
 // ---------------------------------------------------------------------------
 // Baris database dan pemetaan ke tampilan
@@ -463,8 +464,11 @@ export async function kasirSnapshot(staff: StaffContext, since: number | null) {
     order by queue_number`;
   const items = await loadItems(sql, orders.map((order) => order.id));
   const menu = await sql<{ sku: string; name: string; category: string; price_rupiah: number | null; available: boolean }[]>`
-    select sku, name, category, price_rupiah, available from tooday.menu_items
-    where outlet_id = ${staff.outletId} and active order by sort_order, name`;
+    select i.sku, i.name, s.name as category, i.price_rupiah, i.available
+    from tooday.menu_items i join tooday.menu_sections s on s.id = i.section_id
+    where i.outlet_id = ${staff.outletId} and i.active and s.active
+    order by s.sort_order, s.name, i.sort_order, i.name`;
+  const today = await todayTotals(staff);
 
   return {
     changed: true as const,
@@ -480,6 +484,8 @@ export async function kasirSnapshot(staff: StaffContext, since: number | null) {
       paymentMethods: settings.payment_methods,
     },
     staff: { name: staff.displayName, role: staff.role },
+    // Pembayaran tercatat hari ini (tanggal lokal outlet). Ikut berubah karena konfirmasi bayar menaikkan feed_version.
+    today,
     orders: orders.map((order) => staffView(order, items.get(order.id) ?? [])),
     menu: menu.map((item) => ({ sku: item.sku, name: item.name, category: item.category, price: item.price_rupiah, available: item.available })),
     serverTime: new Date().toISOString(),
@@ -497,10 +503,14 @@ export async function kasirHistory(staff: StaffContext, from: string, to: string
     order by created_at desc
     limit 200`;
   const items = await loadItems(sql, orders.map((order) => order.id));
+  // Total mengikuti tanggal pembayaran diterima (sama dengan laporan), bukan tanggal order dibuat.
   const [sum] = await sql<{ paid_total: string | null; paid_count: number }[]>`
     select sum(p.amount_rupiah)::bigint as paid_total, count(*)::int as paid_count
-    from tooday.payment_records p join tooday.orders o on o.id = p.order_id
-    where o.outlet_id = ${staff.outletId} and o.business_date between ${from}::date and ${to}::date`;
+    from tooday.payment_records p
+    join tooday.orders o on o.id = p.order_id
+    join tooday.outlets t on t.id = o.outlet_id
+    where o.outlet_id = ${staff.outletId}
+      and (p.received_at at time zone t.timezone)::date between ${from}::date and ${to}::date`;
   return {
     orders: orders.map((order) => staffView(order, items.get(order.id) ?? [])),
     paidTotal: Number(sum.paid_total ?? 0),

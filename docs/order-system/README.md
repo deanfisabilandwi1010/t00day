@@ -121,13 +121,26 @@ Semua respons `Cache-Control: no-store`. Semua POST/PATCH wajib `Content-Type: a
 | `POST /api/kasir/call-next` | Staf outlet | Panggil WAITING_PAYMENT terlama bila tidak ada yang sedang dipanggil |
 | `PATCH /api/kasir/settings` | Staf outlet | `acceptingOrders`, `counterReady`, `autoCallNext` |
 | `PATCH /api/kasir/menu/[sku]` | Staf outlet | `available` (tersedia/habis) |
+| `GET /api/kasir/menu-admin?outlet=` | **Manager** | Semua section dan menu, termasuk yang diarsipkan |
+| `POST /api/kasir/menu-admin` | **Manager** | `op`: `create-section`, `update-section` (nama, urutan `move`, `active`), `create-item`, `update-item` (nama, deskripsi, harga, foto dari daftar tetap, section, urutan, tampil/arsip, tersedia). Tidak ada hapus permanen |
+| `POST /api/kasir/menu-images?outlet=&label=` | **Manager** | Body = file gambar (WebP/JPEG/PNG, ≤1,5 MB). Mengembalikan `url` foto |
+| `GET /api/menu-images/[id]` | Publik | Foto menu unggahan, cache 1 tahun |
+| `GET /api/kasir/report?outlet=&from=&to=` | **Manager** | Rekap pembayaran: ringkasan, per hari, per jam, per menu, per kasir, per metode, daftar transaksi (≤31 hari). Maks. 366 hari |
 | `GET /api/antrean?outlet=&v=` | Publik | Hanya kode, status, dan id event panggilan. Dibaca dari view `queue_public` |
 
 Kode error: `VALIDATION`, `ORDERS_CLOSED`, `ITEM_UNAVAILABLE`, `PRICE_CHANGED`, `PRICE_MISSING`, `IDEMPOTENCY_CONFLICT`, `STATE_CHANGED`, `NOT_FOUND`, `UNAUTHORIZED`, `FORBIDDEN`, `RATE_LIMITED`, `TOO_MANY_ACTIVE`, `BAD_ORIGIN`, `SERVER`. Klien membedakan error pasti (4xx, order tidak dibuat) dari hasil belum diketahui (jaringan/5xx), dan untuk yang kedua mencari order lewat key sebelum mengizinkan kirim ulang.
 
+## Pencatatan, laporan, dan kelola menu
+
+- **Banner "Pembayaran tercatat hari ini"** di kasir (semua staf): total rupiah dan jumlah transaksi hari ini, plus yang diterima oleh staf yang sedang login. Diambil dari `payment_records`, menurut tanggal pembayaran diterima (Asia/Jakarta).
+- **Tab Laporan** (hanya peran `manager`, dicek juga di server): harian atau bulanan, unduh CSV (pemisah `;`, langsung rapi di Excel) dan cetak. Angka ini catatan kasir, bukan rekonsiliasi bank.
+- **Tab Menu** untuk manager menjadi **Kelola menu**: tambah/ganti nama/urutkan/arsipkan section, tambah/ubah/urutkan/arsipkan menu, pilih foto dari daftar foto produk yang ada (`src/lib/order/menu-images.ts`), tandai habis. Semua perubahan tercatat di `order_events` dan langsung tampil di `/order`. Kasir biasa tetap hanya melihat saklar tersedia/habis.
+- **Unggah foto:** di form menu, tombol **Unggah** mengecilkan foto di browser (sisi terpanjang 900 px, WebP/JPEG) lalu mengirimnya ke `POST /api/kasir/menu-images` (manager). Server memeriksa isi file (magic bytes JPG/PNG/WebP, maks. 1,5 MB), menyimpannya di tabel `menu_images`, dan menyajikannya di `GET /api/menu-images/<id>` dengan cache `immutable` dan `nosniff`. Menu hanya boleh memakai foto dari daftar foto produk atau foto unggahan outlet yang sama.
+- **Homepage ikut Kelola menu.** `LiveMenuProvider` (`src/data/live-menu.tsx`) merender homepage dulu dari `src/data/menu.json`, lalu mengganti dengan data `/api/menu` (dimuat ulang saat tab kembali aktif, maks. tiap 60 detik). Filter menu, kartu, panel kategori (rel), detail, dan Pilihanku mengikuti section/menu live: section baru mendapat filter dan panel sendiri, menu diarsipkan hilang, menu habis tidak bisa disimpan. Empat panel kategori awal tetap memakai judul kurasinya. Bila API gagal, homepage tetap tampil dengan menu statis.
+
 ## Data
 
-Tabel di schema `tooday`: `outlets`, `service_state`, `outlet_counters`, `dining_tables`, `menu_items`, `guest_sessions`, `staff_users`, `staff_memberships`, `staff_sessions`, `rate_events`, `orders`, `order_items`, `payment_records`, `order_events`, `order_requests`, `staff_mutations`, view `queue_public`. Uang dalam integer rupiah, waktu `timestamptz` dari server, tampilan Asia/Jakarta. Tidak ada tombol UI yang menghapus order, pembayaran, atau audit.
+Tabel di schema `tooday`: `outlets`, `service_state`, `outlet_counters`, `dining_tables`, `menu_sections`, `menu_items`, `menu_images`, `guest_sessions`, `staff_users`, `staff_memberships`, `staff_sessions`, `rate_events`, `orders`, `order_items`, `payment_records`, `order_events`, `order_requests`, `staff_mutations`, view `queue_public`. Uang dalam integer rupiah, waktu `timestamptz` dari server, tampilan Asia/Jakarta. Tidak ada tombol UI yang menghapus order, pembayaran, atau audit.
 
 **Tidak dibuat di V1** (sesuai brief): payment gateway/QRIS/kartu, unggah bukti transfer, delivery, loyalty, split bill, stok bahan, printer, POS pihak ketiga, opsi varian (data menu saat ini tidak memiliki varian, jadi UI varian tidak ditampilkan), pajak/biaya layanan (belum ada konfigurasi resmi), pembatalan/ubah nominal setelah bayar.
 

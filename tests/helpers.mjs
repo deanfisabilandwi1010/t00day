@@ -25,7 +25,7 @@ export class Client {
     this.ip = `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
   }
 
-  async request(method, path, body, { origin = BASE, headers = {} } = {}) {
+  async request(method, path, body, { origin = BASE, headers = {}, raw } = {}) {
     const cookie = [...this.cookies].map(([key, value]) => `${key}=${value}`).join("; ");
     const response = await fetch(BASE + path, {
       method,
@@ -36,7 +36,7 @@ export class Client {
         "x-forwarded-for": this.ip,
         ...headers,
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: raw ?? (body !== undefined ? JSON.stringify(body) : undefined),
     });
     for (const line of response.headers.getSetCookie()) {
       const [pair] = line.split(";");
@@ -84,9 +84,13 @@ export async function createFixture({ accepting = true } = {}) {
   let sort = 0;
   for (const item of MENU) {
     sort += 1;
+    const [section] = await sql`
+      insert into tooday.menu_sections (outlet_id, name, sort_order) values (${outlet.id}, ${item.category}, ${sort * 10})
+      on conflict (outlet_id, lower(name)) do update set name = excluded.name
+      returning id`;
     await sql`
-      insert into tooday.menu_items (outlet_id, sku, name, category, price_rupiah, sort_order)
-      values (${outlet.id}, ${item.sku}, ${item.name}, ${item.category}, ${item.price}, ${sort})`;
+      insert into tooday.menu_items (outlet_id, sku, name, section_id, price_rupiah, sort_order)
+      values (${outlet.id}, ${item.sku}, ${item.name}, ${section.id}, ${item.price}, ${sort})`;
   }
   await sql`insert into tooday.dining_tables (outlet_id, code) values (${outlet.id}, 'M03')`;
 
@@ -99,7 +103,11 @@ export async function createFixture({ accepting = true } = {}) {
     await sql`insert into tooday.staff_memberships (user_id, outlet_id, role) values (${user.id}, ${outlet.id}, 'cashier')`;
     staff.push({ email, id: user.id });
   }
-  return { slug, outletId: outlet.id, staff };
+  const managerEmail = `manager-${slug}@uji.local`;
+  const [managerUser] = await sql`
+    insert into tooday.staff_users (email, display_name, password_hash) values (${managerEmail}, 'manager1', ${passwordHash}) returning id`;
+  await sql`insert into tooday.staff_memberships (user_id, outlet_id, role) values (${managerUser.id}, ${outlet.id}, 'manager')`;
+  return { slug, outletId: outlet.id, staff, manager: { email: managerEmail, id: managerUser.id } };
 }
 
 export async function loginAs(email) {

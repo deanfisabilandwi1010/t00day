@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
-import Image from "next/image";
-import { byCategory, FILTER_EVENT, getItem, type Category } from "@/data/menu";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { FILTER_EVENT, type MenuItem } from "@/data/menu";
+import { useLiveMenu } from "@/data/live-menu";
 import { formatPrice } from "@/lib/format";
-import { gsap, MQ, scrollToTarget } from "@/lib/motion";
+import { gsap, MQ, ScrollTrigger, scrollToTarget } from "@/lib/motion";
 import { useOrder } from "@/components/order/OrderProvider";
 import { Mascot } from "@/components/ui/Mascot";
+import { MenuPhoto } from "@/components/ui/MenuPhoto";
 import { PillButton } from "@/components/ui/Pill";
 import { ArrowUpRight } from "lucide-react";
 
@@ -14,15 +15,33 @@ type Theme = "cream" | "olive" | "red" | "yellow";
 /** Gerak gambar saat disorot (sekali jalan, setelah kursor diam sejenak): dikocok, berputar, bersulang, atau melompat. */
 type Motion = "shake" | "spin" | "cheers" | "jump";
 
-const PANELS: { category: Category; word: string; title: string; theme: Theme; motion: Motion; images: string[] }[] = [
+interface PanelStyle {
+  word: string;
+  title: string;
+  theme: Theme;
+  motion: Motion;
+  images: string[];
+}
+
+/** Panel kurasi untuk empat kategori awal. Section baru dari "Kelola menu" mendapat panel otomatis. */
+const CURATED: (PanelStyle & { category: string })[] = [
   { category: "Coffee", word: "coffee", title: "Kopi buat\nhari apa pun.", theme: "cream", motion: "shake", images: ["dirty-tooday-coffe"] },
   { category: "Matcha", word: "matcha", title: "Matcha,\ntiga cara.", theme: "olive", motion: "spin", images: ["matcha-biscoff-latte"] },
   { category: "Non-Coffee", word: "non-coffee", title: "Bukan kopi\njuga ada.", theme: "red", motion: "cheers", images: ["dark-choco", "mango-yakult"] },
   { category: "Cemal-cemil", word: "buttertteok", title: "Teman\nminumnya.", theme: "yellow", motion: "jump", images: ["butertteok"] },
 ];
 
+const THEMES: Theme[] = ["cream", "olive", "red", "yellow"];
+const MOTIONS: Motion[] = ["shake", "spin", "cheers", "jump"];
+
+interface Panel extends PanelStyle {
+  category: string;
+  items: MenuItem[];
+  photos: MenuItem[];
+}
+
 /**
- * Empat kategori sebagai panel menyamping.
+ * Kategori sebagai panel menyamping (satu panel per section menu aktif).
  * Desktop: seksi menempel (sticky) dan scroll vertikal menggeser panel ke kiri.
  * Mobile, reduced-motion, atau tanpa JS: carousel yang digeser dengan jari (scroll-snap).
  */
@@ -33,6 +52,29 @@ export function CategoryRail() {
   // Menu yang terakhir diklik tetap membesar, supaya jelas mana yang sedang dibuka.
   const [picked, setPicked] = useState<string | null>(null);
   const { openDetail } = useOrder();
+  const { sections, items: allItems } = useLiveMenu();
+
+  // Urutan dan isi mengikuti section live. Kategori awal memakai judul kurasi; yang baru memakai nama section.
+  const panels = useMemo<Panel[]>(() => {
+    return sections
+      .map((section, index) => {
+        const items = allItems.filter((item) => item.sectionId === section.id);
+        const curated = CURATED.find((panel) => panel.category === section.name);
+        const style: PanelStyle = curated ?? {
+          word: section.name.toLowerCase(),
+          title: section.name,
+          theme: THEMES[index % THEMES.length],
+          motion: MOTIONS[index % MOTIONS.length],
+          images: [],
+        };
+        const curatedPhotos = style.images.map((id) => items.find((item) => item.id === id)).filter((item): item is MenuItem => Boolean(item?.image));
+        const photos = curatedPhotos.length > 0 ? curatedPhotos : items.filter((item) => item.image).slice(0, 2);
+        return { ...style, category: section.name, items, photos };
+      })
+      .filter((panel) => panel.items.length > 0);
+  }, [sections, allItems]);
+  const count = panels.length;
+  const countRef = useRef(count);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -55,7 +97,7 @@ export function CategoryRail() {
           invalidateOnRefresh: true,
           onUpdate: (self) => {
             section.style.setProperty("--p", self.progress.toFixed(4));
-            setActive(Math.round(self.progress * (PANELS.length - 1)));
+            setActive(Math.round(self.progress * (countRef.current - 1)));
           },
         },
       });
@@ -76,24 +118,30 @@ export function CategoryRail() {
     if (!section) return;
     const travel = section.offsetHeight - window.innerHeight;
     const top = section.getBoundingClientRect().top + window.scrollY;
-    scrollToTarget(top + (index / (PANELS.length - 1)) * travel);
+    scrollToTarget(top + (index / Math.max(1, count - 1)) * travel);
   }
 
-  function showInMenu(category: Category) {
+  // Jumlah panel bisa berubah saat menu live masuk: ukur ulang panjang geser.
+  useEffect(() => {
+    countRef.current = count;
+    ScrollTrigger.refresh();
+  }, [count]);
+
+  function showInMenu(category: string) {
     window.dispatchEvent(new CustomEvent(FILTER_EVENT, { detail: category }));
     scrollToTarget("#menu");
   }
 
   return (
-    <section ref={sectionRef} className="rail" aria-labelledby="rail-title">
+    <section ref={sectionRef} className="rail" aria-labelledby="rail-title" style={{ "--panels": count } as CSSProperties}>
       <div className="rail-sticky">
         <h2 id="rail-title" className="sr-only">
-          Empat kategori menu Tooday
+          Kategori menu Tooday
         </h2>
 
         <div ref={trackRef} className="rail-track">
-          {PANELS.map((panel, index) => {
-            const items = byCategory(panel.category);
+          {panels.map((panel, index) => {
+            const items = panel.items;
             return (
               <article key={panel.category} className={`rail-panel rail-panel--${panel.theme}`} data-motion={panel.motion}>
                 <p className="rail-word" aria-hidden="true">
@@ -102,7 +150,7 @@ export function CategoryRail() {
 
                 <div className="rail-copy">
                   <p className="eyebrow">
-                    0{index + 1} / 0{PANELS.length} · {panel.category}
+                    {String(index + 1).padStart(2, "0")} / {String(count).padStart(2, "0")} · {panel.category}
                   </p>
                   <h3 className="display-lg rail-title">
                     {panel.title.split("\n").map((line) => (
@@ -136,9 +184,10 @@ export function CategoryRail() {
                   </PillButton>
                 </div>
 
-                <div className={`rail-visual rail-visual--${panel.images.length}`}>
-                  {panel.images.map((id, imageIndex) => {
-                    const item = getItem(id);
+                <div className={`rail-visual rail-visual--${Math.max(1, panel.photos.length)}`}>
+                  {panel.photos.length === 0 && <Mascot name="boy-with-cup" reveal="peek" className="rail-cup rail-cup--mascot" sizes="(min-width: 1024px) 26vw, 46vw" />}
+                  {panel.photos.map((item, imageIndex) => {
+                    const id = item.id;
                     return (
                       <button
                         key={id}
@@ -152,7 +201,7 @@ export function CategoryRail() {
                         aria-haspopup="dialog"
                         aria-label={`Lihat detail ${item.name}`}
                       >
-                        <Image src={item.image!} alt={item.alt} width={1086} height={1448} sizes="(min-width: 1024px) 30vw, 52vw" />
+                        <MenuPhoto src={item.image!} alt={item.alt} sizes="(min-width: 1024px) 30vw, 52vw" />
                       </button>
                     );
                   })}
@@ -171,7 +220,7 @@ export function CategoryRail() {
             <Mascot name="boy-head" reveal="now" className="rail-walker" sizes="56px" />
           </div>
           <ol>
-            {PANELS.map((panel, index) => (
+            {panels.map((panel, index) => (
               <li key={panel.category}>
                 <button type="button" onClick={() => goTo(index)} aria-current={index === active ? "step" : undefined}>
                   {panel.category}

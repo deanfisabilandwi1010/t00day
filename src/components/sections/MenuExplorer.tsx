@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import Image from "next/image";
 import { Plus } from "lucide-react";
-import { byCategory, CATEGORIES, FILTER_EVENT, menu, type Category, type MenuItem } from "@/data/menu";
+import { FILTER_EVENT, type MenuItem } from "@/data/menu";
+import { useLiveMenu } from "@/data/live-menu";
 import { TILE } from "@/data/tiles";
 import { formatPrice } from "@/lib/format";
 import { ScrollTrigger } from "@/lib/motion";
@@ -11,25 +11,29 @@ import { useOrder } from "@/components/order/OrderProvider";
 import { SplitTitle } from "@/components/motion/SplitTitle";
 import { Doodle } from "@/components/ui/Doodle";
 import { Mascot } from "@/components/ui/Mascot";
+import { MenuPhoto } from "@/components/ui/MenuPhoto";
 
-type Filter = "Semua" | Category;
-
-const FILTERS: { value: Filter; count: number }[] = [
-  { value: "Semua", count: menu.length },
-  ...CATEGORIES.map((category) => ({ value: category as Filter, count: byCategory(category).length })),
-];
+const ALL = "Semua";
 
 export function MenuExplorer() {
-  const [filter, setFilter] = useState<Filter>("Semua");
-  const filtered = filter === "Semua" ? menu : byCategory(filter);
+  // Section dan menu mengikuti "Kelola menu" (data live), dengan menu statis sebagai tampilan awal.
+  const { sections, items: menu } = useLiveMenu();
+  const [chosen, setChosen] = useState<string>(ALL);
+  // Filter dipilih berdasarkan nama section; bila section itu diarsipkan, kembali ke Semua.
+  const filter = chosen === ALL || sections.some((section) => section.name === chosen) ? chosen : ALL;
+  const filters = [
+    { value: ALL, count: menu.length },
+    ...sections.map((section) => ({ value: section.name, count: menu.filter((item) => item.sectionId === section.id).length })),
+  ];
+  const filtered = filter === ALL ? menu : menu.filter((item) => item.category === filter);
   // Menu berfoto tampil lebih dulu; urutan papan menu dipertahankan di tiap kelompok.
   const items = [...filtered.filter((item) => item.image), ...filtered.filter((item) => !item.image)];
 
   // Rel kategori di atas bisa meminta filter tertentu sebelum menggulir ke sini.
   useEffect(() => {
     const onFilter = (event: Event) => {
-      const category = (event as CustomEvent<Category>).detail;
-      if (CATEGORIES.includes(category)) setFilter(category);
+      const category = (event as CustomEvent<string>).detail;
+      if (typeof category === "string") setChosen(category);
     };
     window.addEventListener(FILTER_EVENT, onFilter);
     return () => window.removeEventListener(FILTER_EVENT, onFilter);
@@ -38,7 +42,7 @@ export function MenuExplorer() {
   // Tinggi grid berubah saat filter berganti; trigger di bawahnya perlu dihitung ulang.
   useEffect(() => {
     ScrollTrigger.refresh();
-  }, [filter]);
+  }, [filter, menu.length]);
 
   return (
     <section id="menu" className="menu" aria-labelledby="menu-title">
@@ -51,13 +55,13 @@ export function MenuExplorer() {
         </div>
 
         <div className="menu-filters" role="group" aria-label="Filter kategori menu">
-          {FILTERS.map(({ value, count }) => (
+          {filters.map(({ value, count }) => (
             <button
               key={value}
               type="button"
               className="chip"
               aria-pressed={filter === value}
-              onClick={() => setFilter(value)}
+              onClick={() => setChosen(value)}
             >
               {value}
               <span className="chip-count" aria-hidden="true">
@@ -67,7 +71,7 @@ export function MenuExplorer() {
           ))}
         </div>
         <p className="sr-only" role="status" aria-live="polite">
-          Menampilkan {items.length} menu{filter === "Semua" ? "" : ` kategori ${filter}`}.
+          Menampilkan {items.length} menu{filter === ALL ? "" : ` kategori ${filter}`}.
         </p>
 
         {items.length === 0 ? (
@@ -102,7 +106,7 @@ function ProductCard({ item, index }: { item: MenuItem; index: number }) {
       <button type="button" className="card-hit" onClick={() => openDetail(item.id)} aria-haspopup="dialog">
         <span className="card-media">
           {item.image ? (
-            <Image src={item.image} alt={item.alt} width={1086} height={1448} sizes="(min-width: 1024px) 24vw, 44vw" />
+            <MenuPhoto src={item.image} alt={item.alt} sizes="(min-width: 1024px) 24vw, 44vw" />
           ) : (
             <span className="card-nophoto" aria-hidden="true">
               <span className="sparkle" />
@@ -114,13 +118,15 @@ function ProductCard({ item, index }: { item: MenuItem; index: number }) {
           <span className="card-name">{item.name}</span>
           {item.description && <span className="card-desc">{item.description}</span>}
           <span className="card-price">{formatPrice(item.price)}</span>
+          {item.availability === false && <span className="card-out">Lagi habis</span>}
         </span>
         <span className="sr-only">Lihat detail</span>
       </button>
       <button
         type="button"
         className="card-add"
-        aria-label={`Simpan ${item.name} ke pilihanku`}
+        aria-label={item.availability === false ? `${item.name} lagi habis` : `Simpan ${item.name} ke pilihanku`}
+        disabled={item.availability === false}
         onClick={() => add(item.id, 1, ref.current)}
       >
         <Plus aria-hidden="true" size={20} strokeWidth={2.5} />

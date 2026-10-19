@@ -35,15 +35,26 @@ try {
     await tx`insert into tooday.service_state (outlet_id) values (${outlet.id}) on conflict do nothing`;
     await tx`insert into tooday.outlet_counters (outlet_id) values (${outlet.id}) on conflict do nothing`;
 
+    // Seed hanya mengisi yang belum ada. Menu yang sudah diubah manager lewat "Kelola menu" tidak ditimpa.
+    const sectionIds = new Map();
+    let sectionOrder = 0;
+    for (const category of [...new Set(menu.map((item) => item.category))]) {
+      sectionOrder += 10;
+      await tx`
+        insert into tooday.menu_sections (outlet_id, name, sort_order)
+        select ${outlet.id}, ${category}, ${sectionOrder}
+        where not exists (select 1 from tooday.menu_sections where outlet_id = ${outlet.id} and lower(name) = lower(${category}))`;
+      const [section] = await tx`
+        select id from tooday.menu_sections where outlet_id = ${outlet.id} and lower(name) = lower(${category})`;
+      sectionIds.set(category, section.id);
+    }
     let order = 0;
     for (const item of menu) {
       order += 10;
       await tx`
-        insert into tooday.menu_items (outlet_id, sku, name, category, description, price_rupiah, image_url, sort_order)
-        values (${outlet.id}, ${item.id}, ${item.name}, ${item.category}, ${PUBLIC_COPY[item.id]?.description ?? null}, ${item.price}, ${item.image}, ${order})
-        on conflict (outlet_id, sku) do update set
-          name = excluded.name, category = excluded.category, description = excluded.description, image_url = excluded.image_url,
-          sort_order = excluded.sort_order, updated_at = now(), version = tooday.menu_items.version + 1`;
+        insert into tooday.menu_items (outlet_id, sku, name, section_id, description, price_rupiah, image_url, sort_order)
+        values (${outlet.id}, ${item.id}, ${item.name}, ${sectionIds.get(item.category)}, ${PUBLIC_COPY[item.id]?.description ?? null}, ${item.price}, ${item.image}, ${order})
+        on conflict (outlet_id, sku) do nothing`;
     }
     console.log(`Outlet "${slug}" dan ${menu.length} menu siap. Penerimaan order: ${open ? "DIBUKA" : "ditutup"}.`);
   });

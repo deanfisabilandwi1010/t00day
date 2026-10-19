@@ -11,14 +11,16 @@ import { cart, pending, useCart, type CartLine } from "@/lib/order/cart";
 import { api, newKey, RequestError, useFeed } from "@/lib/order/client";
 import { LIMITS, STATUS_LABEL, type GuestOrderView, type OrderStatus, type OutletInfo, type PublicMenuItem } from "@/lib/order/types";
 import { Mascot } from "@/components/ui/Mascot";
+import { MenuPhoto } from "@/components/ui/MenuPhoto";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Sheet } from "@/components/ui/Sheet";
 
-const CATEGORY_ORDER = ["Coffee", "Matcha", "Non-Coffee", "Cemal-cemil"];
 export const DEFAULT_OUTLET = process.env.NEXT_PUBLIC_DEFAULT_OUTLET ?? "tooday-main";
 
 interface MenuResponse {
   outlet: OutletInfo;
+  /** Urutan section mengikuti pengaturan manager di "Kelola menu". */
+  sections: { id: string; name: string }[];
   items: PublicMenuItem[];
   feedVersion: number;
 }
@@ -64,10 +66,7 @@ export function OrderApp() {
   const [active, setActive] = useState<ActiveOrder[]>([]);
 
   const bySku = useMemo(() => new Map((menu?.items ?? []).map((item) => [item.sku, item])), [menu]);
-  const categories = useMemo(() => {
-    const present = new Set((menu?.items ?? []).map((item) => item.category));
-    return CATEGORY_ORDER.filter((category) => present.has(category));
-  }, [menu]);
+  const sections = menu?.sections ?? [];
 
   const count = cartState.lines.reduce((sum, line) => sum + line.qty, 0);
   const total = cartState.lines.reduce((sum, line) => sum + (bySku.get(line.sku)?.price ?? 0) * line.qty, 0);
@@ -295,21 +294,21 @@ export function OrderApp() {
         {menu && (
           <>
             <nav className="qo-cats" aria-label="Kategori menu">
-              {categories.map((category) => (
-                <a key={category} href={`#cat-${category}`} className="chip qo-cat">
-                  {category}
+              {sections.map((section) => (
+                <a key={section.id} href={`#sec-${section.id}`} className="chip qo-cat">
+                  {section.name}
                 </a>
               ))}
             </nav>
 
-            {categories.map((category) => (
-              <section key={category} id={`cat-${category}`} className="qo-section" aria-labelledby={`cat-title-${category}`}>
-                <h2 id={`cat-title-${category}`} className="qo-section-title">
-                  {category}
+            {sections.map((section) => (
+              <section key={section.id} id={`sec-${section.id}`} className="qo-section" aria-labelledby={`sec-title-${section.id}`}>
+                <h2 id={`sec-title-${section.id}`} className="qo-section-title">
+                  {section.name}
                 </h2>
                 <ul className="qo-grid">
                   {menu.items
-                    .filter((item) => item.category === category)
+                    .filter((item) => item.sectionId === section.id)
                     .map((item) => (
                       <li key={item.sku}>
                         <ProductCard item={item} inCart={qtyBySku.get(item.sku) ?? 0} onOpen={() => openDetail(item.sku)} onAdd={() => addQuick(item)} />
@@ -382,7 +381,7 @@ function ProductCard({ item, inCart, onOpen, onAdd }: { item: PublicMenuItem; in
       <button type="button" className="qo-card-hit" onClick={onOpen} aria-haspopup="dialog" aria-label={`Lihat detail ${item.name}`} />
       <div className="qo-card-media">
         {item.image ? (
-          <Image src={item.image} alt="" width={1086} height={1448} sizes="(min-width: 900px) 140px, 96px" />
+          <MenuPhoto src={item.image} alt="" sizes="(min-width: 900px) 140px, 96px" />
         ) : (
           <span aria-hidden="true">{item.name.charAt(0)}</span>
         )}
@@ -418,7 +417,7 @@ function ProductDetail({ item, onAdd }: { item: PublicMenuItem; onAdd: (qty: num
       <div className="qo-detail-media">
         <div className="patch qo-detail-patch" aria-hidden="true" />
         {item.image ? (
-          <Image src={item.image} alt={`Foto ilustrasi ${item.name}`} width={1086} height={1448} sizes="(min-width: 640px) 260px, 50vw" />
+          <MenuPhoto src={item.image} alt={`Foto ilustrasi ${item.name}`} sizes="(min-width: 640px) 260px, 50vw" />
         ) : (
           <p className="qo-detail-nophoto">Foto menyusul</p>
         )}
@@ -520,7 +519,7 @@ function CartPanel({ lines, bySku, orderType, nickname, table, accepting, total,
           return (
             <li key={`${line.sku}-${line.note ?? ""}`} className={problem ? "has-problem" : ""}>
               <div className="summary-thumb">
-                {item?.image ? <Image src={item.image} alt="" width={1086} height={1448} sizes="56px" /> : <span aria-hidden="true">{(item?.name ?? line.sku).charAt(0)}</span>}
+                {item?.image ? <MenuPhoto src={item.image} alt="" sizes="56px" /> : <span aria-hidden="true">{(item?.name ?? line.sku).charAt(0)}</span>}
               </div>
               <div className="qo-line-info">
                 <p className="summary-name">{item?.name ?? line.sku}</p>

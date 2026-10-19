@@ -452,6 +452,214 @@ describe("tengah malam dan kedaluwarsa", () => {
   });
 });
 
+describe("pencatatan dan laporan transaksi", () => {
+  const todayJakarta = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+
+  test("snapshot kasir memuat total pembayaran hari ini, total milik kasir sendiri", async () => {
+    const fx = await createFixture();
+    const [k1, k2] = await Promise.all([loginAs(fx.staff[0].email), loginAs(fx.staff[1].email)]);
+    const a = (await submit(new Client(), fx.slug, [{ sku: "kopi-a", quantity: 2 }])).data.order; // 44.000
+    const b = (await submit(new Client(), fx.slug, [{ sku: "matcha-b", quantity: 1 }])).data.order; // 35.000
+    await submit(new Client(), fx.slug); // belum dibayar: tidak dihitung
+    assert.equal((await staffAction(k1, fx.slug, a, "confirm-payment")).status, 200);
+    const bNow = (await snapshot(k2, fx.slug)).orders.find((order) => order.id === b.id);
+    assert.equal((await staffAction(k2, fx.slug, bNow, "confirm-payment")).status, 200);
+
+    const s1 = await snapshot(k1, fx.slug);
+    assert.deepEqual(
+      { date: s1.today.date, total: s1.today.paidTotal, count: s1.today.paidCount, mine: s1.today.mineTotal, mineCount: s1.today.mineCount },
+      { date: todayJakarta(), total: 79000, count: 2, mine: 44000, mineCount: 1 },
+    );
+    const s2 = await snapshot(k2, fx.slug);
+    assert.equal(s2.today.mineTotal, 35000);
+  });
+
+  test("laporan hanya untuk manager; kasir dan staf outlet lain ditolak", async () => {
+    const fx = await createFixture();
+    const other = await createFixture();
+    const today = todayJakarta();
+    const cashier = await loginAs(fx.staff[0].email);
+    assert.equal((await cashier.get(`/api/kasir/report?outlet=${fx.slug}&from=${today}&to=${today}`)).status, 403);
+    const outsider = await loginAs(other.manager.email);
+    assert.equal((await outsider.get(`/api/kasir/report?outlet=${fx.slug}&from=${today}&to=${today}`)).status, 403);
+    assert.equal((await new Client().get(`/api/kasir/report?outlet=${fx.slug}&from=${today}&to=${today}`)).status, 401);
+    const manager = await loginAs(fx.manager.email);
+    assert.equal((await manager.get(`/api/kasir/report?outlet=${fx.slug}&from=${today}&to=2000-01-01`)).status, 400);
+  });
+
+  test("laporan harian dan bulanan cocok dengan pembayaran, per menu dan per kasir", async () => {
+    const fx = await createFixture();
+    const kasir = await loginAs(fx.staff[0].email);
+    const manager = await loginAs(fx.manager.email);
+    const today = todayJakarta();
+
+    const a = (await submit(new Client(), fx.slug, [{ sku: "kopi-a", quantity: 2 }, { sku: "teok-c", quantity: 1 }])).data.order; // 64.000
+    assert.equal((await staffAction(kasir, fx.slug, a, "confirm-payment")).status, 200);
+    const b = (await submit(new Client(), fx.slug, [{ sku: "kopi-a", quantity: 1 }])).data.order; // 22.000
+    const bNow = (await snapshot(manager, fx.slug)).orders.find((order) => order.id === b.id);
+    assert.equal((await staffAction(manager, fx.slug, bNow, "confirm-payment")).status, 200);
+    const c = (await submit(new Client(), fx.slug)).data.order;
+    const cNow = (await snapshot(kasir, fx.slug)).orders.find((order) => order.id === c.id);
+    await staffAction(kasir, fx.slug, cNow, "cancel", { reason: "uji laporan" });
+
+    // Pembayaran kemarin (tanggal Jakarta) tidak boleh masuk laporan harian hari ini.
+    const old = (await submit(new Client(), fx.slug, [{ sku: "matcha-b", quantity: 1 }])).data.order;
+    const oldNow = (await snapshot(kasir, fx.slug)).orders.find((order) => order.id === old.id);
+    await staffAction(kasir, fx.slug, oldNow, "confirm-payment");
+    await sql`update tooday.payment_records set received_at = received_at - interval '1 day' where order_id = ${old.id}`;
+
+    const daily = await manager.get(`/api/kasir/report?outlet=${fx.slug}&from=${today}&to=${today}`);
+    assert.equal(daily.status, 200);
+    assert.deepEqual(daily.data.summary, { revenue: 86000, transactions: 2, avgTicket: 43000, itemsSold: 4, cancelled: 1, expired: 0 });
+    assert.deepEqual(
+      daily.data.byItem.map((row) => [row.sku, row.quantity, row.revenue]),
+      [["kopi-a", 3, 66000], ["teok-c", 1, 20000]],
+    );
+    assert.deepEqual(
+      daily.data.byStaff.map((row) => [row.name, row.transactions, row.revenue]).sort(),
+      [["kasir1", 1, 64000], ["manager1", 1, 22000]],
+    );
+    assert.equal(daily.data.transactions.length, 2);
+    assert.equal(daily.data.byHour.reduce((sum, row) => sum + row.revenue, 0), 86000);
+
+    const month = today.slice(0, 7);
+    const lastDay = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
+    const monthly = await manager.get(`/api/kasir/report?outlet=${fx.slug}&from=${month}-01&to=${month}-${lastDay}`);
+    const yesterday = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date(Date.now() - 86_400_000));
+    const expected = yesterday.startsWith(month) ? 121000 : 86000;
+    assert.equal(monthly.data.summary.revenue, expected);
+    assert.equal(monthly.data.byDay.reduce((sum, row) => sum + row.revenue, 0), expected);
+    assert.ok(monthly.data.byDay.some((row) => row.date === today && row.revenue === 86000));
+
+    // Riwayat kasir memakai dasar tanggal yang sama (tanggal pembayaran diterima).
+    const history = await kasir.get(`/api/kasir/history?outlet=${fx.slug}&from=${today}&to=${today}`);
+    assert.equal(history.data.paidTotal, 86000);
+  });
+});
+
+describe("kelola menu oleh manager", () => {
+  const admin = (client, slug, body) => client.post("/api/kasir/menu-admin", { outlet: slug, ...body });
+
+  test("hanya manager yang bisa membuka dan mengubah menu", async () => {
+    const fx = await createFixture();
+    const cashier = await loginAs(fx.staff[0].email);
+    assert.equal((await cashier.get(`/api/kasir/menu-admin?outlet=${fx.slug}`)).status, 403);
+    assert.equal((await admin(cashier, fx.slug, { op: "create-section", name: "Minuman" })).status, 403);
+    assert.equal((await admin(new Client(), fx.slug, { op: "create-section", name: "Minuman" })).status, 401);
+  });
+
+  test("section baru + menu baru muncul di halaman pesan sesuai urutan dan bisa dipesan", async () => {
+    const fx = await createFixture();
+    const manager = await loginAs(fx.manager.email);
+    assert.equal((await admin(manager, fx.slug, { op: "create-section", name: "Minuman Dingin" })).status, 200);
+    const dup = await admin(manager, fx.slug, { op: "create-section", name: "minuman dingin" });
+    assert.equal(dup.status, 409, "nama section tidak boleh dobel (tanpa beda huruf besar/kecil)");
+
+    let data = (await manager.get(`/api/kasir/menu-admin?outlet=${fx.slug}`)).data;
+    const section = data.sections.find((entry) => entry.name === "Minuman Dingin");
+    const created = await admin(manager, fx.slug, {
+      op: "create-item",
+      sectionId: section.id,
+      name: "Es Kopi Gula Aren",
+      description: "Kopi susu gula aren.",
+      price: 24000,
+      image: "/assets/tooday/products/coffee-brown-mixed.webp",
+    });
+    assert.equal(created.status, 200);
+    const badImage = await admin(manager, fx.slug, { op: "create-item", sectionId: section.id, name: "Aneh", price: 1000, image: "https://evil.example/x.png" });
+    assert.equal(badImage.status, 400);
+
+    // Pindahkan section baru ke posisi paling atas.
+    for (let i = 0; i < 4; i += 1) await admin(manager, fx.slug, { op: "update-section", id: section.id, move: "up" });
+    const menu = (await new Client().get(`/api/menu?outlet=${fx.slug}`)).data;
+    assert.equal(menu.sections[0].name, "Minuman Dingin");
+    const item = menu.items.find((entry) => entry.name === "Es Kopi Gula Aren");
+    assert.equal(item.sku, "es-kopi-gula-aren");
+    assert.equal(item.price, 24000);
+    assert.equal(item.category, "Minuman Dingin");
+
+    const order = await submit(new Client(), fx.slug, [{ sku: "es-kopi-gula-aren", quantity: 2, expectedUnitPrice: 24000 }]);
+    assert.equal(order.status, 201);
+    assert.equal(order.data.order.total, 48000);
+
+    // Nama sama → sku unik baru, bukan menimpa.
+    await admin(manager, fx.slug, { op: "create-item", sectionId: section.id, name: "Es Kopi Gula Aren", price: 26000 });
+    data = (await manager.get(`/api/kasir/menu-admin?outlet=${fx.slug}`)).data;
+    assert.deepEqual(data.sections.find((entry) => entry.id === section.id).items.map((entry) => entry.sku).sort(), ["es-kopi-gula-aren", "es-kopi-gula-aren-2"]);
+  });
+
+  test("ubah harga, arsipkan menu, dan arsipkan section", async () => {
+    const fx = await createFixture();
+    const manager = await loginAs(fx.manager.email);
+    const guest = new Client();
+    const before = await submit(guest, fx.slug, [{ sku: "kopi-a", quantity: 1 }]);
+    assert.equal(before.status, 201);
+
+    assert.equal((await admin(manager, fx.slug, { op: "update-item", sku: "kopi-a", price: 23000 })).status, 200);
+    const stale = await submit(new Client(), fx.slug, [{ sku: "kopi-a", quantity: 1, expectedUnitPrice: 22000 }]);
+    assert.equal(stale.data.error.code, "PRICE_CHANGED");
+    assert.equal((await guest.get(`/api/orders/${before.data.order.id}`)).data.order.total, 22000, "pesanan lama tetap memakai harga lama");
+
+    await admin(manager, fx.slug, { op: "update-item", sku: "teok-c", active: false });
+    let menu = (await new Client().get(`/api/menu?outlet=${fx.slug}`)).data;
+    assert.ok(!menu.items.some((entry) => entry.sku === "teok-c"));
+    const archived = await submit(new Client(), fx.slug, [{ sku: "teok-c", quantity: 1 }]);
+    assert.equal(archived.data.error.code, "ITEM_UNAVAILABLE");
+
+    const data = (await manager.get(`/api/kasir/menu-admin?outlet=${fx.slug}`)).data;
+    const matcha = data.sections.find((entry) => entry.name === "Matcha");
+    await admin(manager, fx.slug, { op: "update-section", id: matcha.id, active: false });
+    menu = (await new Client().get(`/api/menu?outlet=${fx.slug}`)).data;
+    assert.ok(!menu.sections.some((entry) => entry.name === "Matcha"));
+    assert.equal((await submit(new Client(), fx.slug, [{ sku: "matcha-b", quantity: 1 }])).data.error.code, "ITEM_UNAVAILABLE");
+
+    const events = await sql`select action from tooday.order_events where outlet_id = ${fx.outletId} and action like 'MENU_%' or (outlet_id = ${fx.outletId} and action like 'SECTION_%')`;
+    assert.ok(events.length >= 3, "perubahan menu tercatat di audit");
+  });
+});
+
+describe("unggah foto menu", () => {
+  // PNG 1x1 yang valid.
+  const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  const upload = (client, slug, body, type = "image/png") =>
+    client.request("POST", `/api/kasir/menu-images?outlet=${slug}&label=uji`, undefined, { headers: { "content-type": type }, raw: body });
+
+  test("manager mengunggah foto, dipakai menu, tampil publik; selain itu ditolak", async () => {
+    const fx = await createFixture();
+    const other = await createFixture();
+    const manager = await loginAs(fx.manager.email);
+    const cashier = await loginAs(fx.staff[0].email);
+
+    assert.equal((await upload(cashier, fx.slug, PNG)).status, 403);
+    assert.equal((await upload(new Client(), fx.slug, PNG)).status, 401);
+    const fake = await upload(manager, fx.slug, Buffer.from("<svg onload=alert(1)>"), "image/png");
+    assert.equal(fake.status, 415, "isi file diperiksa, bukan hanya header");
+
+    const ok = await upload(manager, fx.slug, PNG);
+    assert.equal(ok.status, 201);
+    assert.match(ok.data.url, /^\/api\/menu-images\/[0-9a-f-]{36}$/);
+
+    const served = await fetch(BASE + ok.data.url);
+    assert.equal(served.status, 200);
+    assert.equal(served.headers.get("content-type"), "image/png");
+    assert.match(served.headers.get("cache-control"), /immutable/);
+    assert.equal(served.headers.get("x-content-type-options"), "nosniff");
+    assert.deepEqual(Buffer.from(await served.arrayBuffer()), PNG);
+
+    const used = await manager.post("/api/kasir/menu-admin", { outlet: fx.slug, op: "update-item", sku: "kopi-a", image: ok.data.url });
+    assert.equal(used.status, 200);
+    const menu = (await new Client().get(`/api/menu?outlet=${fx.slug}`)).data;
+    assert.equal(menu.items.find((item) => item.sku === "kopi-a").image, ok.data.url);
+    assert.ok((await manager.get(`/api/kasir/menu-admin?outlet=${fx.slug}`)).data.uploads.some((u) => u.url === ok.data.url));
+
+    // Foto milik outlet lain tidak boleh dipakai.
+    const otherManager = await loginAs(other.manager.email);
+    const foreign = await otherManager.post("/api/kasir/menu-admin", { outlet: other.slug, op: "update-item", sku: "kopi-a", image: ok.data.url });
+    assert.equal(foreign.status, 400);
+    assert.equal((await fetch(BASE + "/api/menu-images/00000000-0000-4000-8000-000000000000")).status, 404);
+  });
+});
+
 describe("database constraints", () => {
   test("database menolak dua CALLED dan PAID + CANCELLED", async () => {
     const fx = await createFixture();

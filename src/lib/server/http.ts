@@ -37,9 +37,10 @@ export function errorResponse(error: unknown): NextResponse<ApiErrorBody> {
 
 /**
  * Proteksi CSRF untuk cookie sesi: setiap mutasi wajib datang dari origin situs ini
- * (header Origin cocok dengan Host) dan memakai JSON. Form lintas situs tidak bisa memenuhi keduanya.
+ * (header Origin cocok dengan Host) dan memakai JSON (atau tipe biner yang diizinkan, mis. unggah foto).
+ * Form lintas situs tidak bisa memenuhi keduanya.
  */
-export function assertSameOrigin(request: NextRequest) {
+export function assertSameOrigin(request: NextRequest, accept: readonly string[] = ["application/json"]) {
   const origin = request.headers.get("origin");
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
   const allowed = (process.env.ALLOWED_ORIGINS ?? "")
@@ -56,7 +57,7 @@ export function assertSameOrigin(request: NextRequest) {
   }
   if (!ok) throw new ApiError(403, "BAD_ORIGIN", "Permintaan ditolak karena tidak berasal dari situs Tooday.");
   const type = request.headers.get("content-type") ?? "";
-  if (!type.startsWith("application/json")) throw new ApiError(415, "VALIDATION", "Format permintaan tidak dikenali.");
+  if (!accept.some((allowedType) => type.startsWith(allowedType))) throw new ApiError(415, "VALIDATION", "Format permintaan tidak dikenali.");
 }
 
 export async function readJson<T extends z.ZodType>(request: NextRequest, schema: T): Promise<z.infer<T>> {

@@ -25,8 +25,9 @@ Data Postgres lokal disimpan di `~/.tooday/pg` (di luar folder project, karena f
 
 1. Buat project Supabase, region terdekat dengan pengguna (mis. Singapore).
 2. **Migration.** Pilih salah satu:
-   - SQL Editor → tempel isi `supabase/migrations/20261015000000_order_system.sql` → Run; atau
-   - dari komputer: isi `DATABASE_URL` dengan connection string Supabase (lihat langkah 3), lalu `npm run db:migrate` (mencatat migration di `tooday_meta.migrations`).
+   - SQL Editor → tempel isi setiap file di `supabase/migrations/` **berurutan** (`20261015…order_system`, `20261019…menu_sections`, `20261020…menu_images`) → Run; atau
+   - dari komputer (disarankan): `node --env-file=.env.supabase scripts/db/migrate.mjs`. Hanya menjalankan file yang belum tercatat di `tooday_meta.migrations`, jadi aman diulang.
+   Status project Tooday per 20 Oktober 2026: ketiga migration sudah terpasang. Kolom lama `menu_items.category` sengaja dibiarkan (boleh kosong) agar versi aplikasi sebelumnya tetap jalan selama deploy.
    Migration membuat schema `tooday` (bukan `public`), mengaktifkan RLS tanpa policy di semua tabel, dan mencabut akses `anon`/`authenticated`. Jangan menambahkan schema `tooday` ke "Exposed schemas" Data API.
 3. **Connection string.** Project Settings → Database → Connection string → **Transaction pooler** (port 6543). Driver sudah memakai `prepare: false`, yang dibutuhkan mode ini.
 4. **Outlet dan menu.**

@@ -3,6 +3,7 @@ import { Loader } from "@/components/motion/Loader";
 import { RevealObserver } from "@/components/motion/RevealObserver";
 import { SmoothScroll } from "@/components/motion/SmoothScroll";
 import { OrderProvider } from "@/components/order/OrderProvider";
+import { LiveMenuProvider } from "@/data/live-menu";
 import { BrandStory } from "@/components/sections/BrandStory";
 import { CategoryRail } from "@/components/sections/CategoryRail";
 import { Featured } from "@/components/sections/Featured";
@@ -20,6 +21,7 @@ const RIBBON = ["Coffee", "Matcha", "Butter Tteok", "Goood Days"];
 
 export default function Home() {
   return (
+    <LiveMenuProvider>
     <OrderProvider>
       <Loader />
       <SmoothScroll />
@@ -48,5 +50,6 @@ export default function Home() {
       </main>
       <SiteFooter />
     </OrderProvider>
+    </LiveMenuProvider>
   );
 }

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { Check, Copy, Store, Trash2 } from "lucide-react";
 import { formatPrice } from "@/lib/format";
 import { Mascot } from "@/components/ui/Mascot";
+import { MenuPhoto } from "@/components/ui/MenuPhoto";
 import { PillButton, PillLink } from "@/components/ui/Pill";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Sheet } from "@/components/ui/Sheet";
@@ -63,7 +63,7 @@ export function OrderSummary({ open, onClose }: { open: boolean; onClose: () => 
                 <li key={item.id}>
                   <div className="summary-thumb">
                     {item.image ? (
-                      <Image src={item.image} alt="" width={1086} height={1448} sizes="64px" />
+                      <MenuPhoto src={item.image} alt="" sizes="64px" />
                     ) : (
                       <span aria-hidden="true">{item.name.charAt(0)}</span>
                     )}

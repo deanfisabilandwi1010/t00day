@@ -47,3 +47,6 @@ docs/*
 asset/docs/
 # hasil QA lokal
 /qa-out/
+
+# kredensial staf lokal (jangan di-commit)
+*.local.txt

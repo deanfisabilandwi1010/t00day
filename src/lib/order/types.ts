@@ -70,6 +70,8 @@ export function formatCode(queueNumber: number): string {
 export interface PublicMenuItem {
   sku: string;
   name: string;
+  sectionId: string;
+  /** Nama section menu (mis. Coffee, Cemal-cemil). */
   category: string;
   description: string | null;
   price: number | null;

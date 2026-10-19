@@ -5,6 +5,7 @@ const MASCOTS = {
   "boy-peeking": { width: 800, height: 533 },
   "boy-with-cup": { width: 800, height: 800 },
   "girl-head": { width: 800, height: 728 },
+  "boy-pointing": { width: 800, height: 800 },
 } as const;
 
 interface MascotProps {

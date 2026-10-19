@@ -98,7 +98,7 @@ function ProductDetail({ item, onClose }: { item: MenuItem; onClose: () => void 
               onClose();
             }}
           >
-            Simpan ke pilihanku
+            Masukkan ke Pilihanku
           </PillButton>
         </div>
 

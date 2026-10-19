@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { AtSign, Check, Copy, Trash2 } from "lucide-react";
-import { brand } from "@/data/brand";
+import { Check, Copy, Store, Trash2 } from "lucide-react";
 import { formatPrice } from "@/lib/format";
 import { Mascot } from "@/components/ui/Mascot";
 import { PillButton, PillLink } from "@/components/ui/Pill";
@@ -18,8 +17,8 @@ function toText(lines: OrderLine[], total: number): string {
 }
 
 /**
- * Daftar pilihan, bukan checkout: belum ada kanal order resmi, jadi pengunjung
- * menyalin daftarnya untuk ditunjukkan atau dikirim sendiri.
+ * Daftar pilihan di homepage. Belum terkirim ke kasir: pengunjung melanjutkan ke /order untuk
+ * mengecek dan mengirim pesanan, lalu membayar di kasir. Keranjangnya sama dengan /order.
  */
 export function OrderSummary({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { lines, count, total, setQty, clear } = useOrder();
@@ -83,12 +82,16 @@ export function OrderSummary({ open, onClose }: { open: boolean; onClose: () => 
               <strong>{formatPrice(total)}</strong>
             </div>
             <p className="summary-note">
-              Ini catatan pilihan, bukan pesanan. Harga mengikuti papan menu Tooday; harga dan ketersediaan
-              dikonfirmasi saat kamu memesan.
+              Belum terkirim ke kasir. Lanjutkan untuk mengecek pilihan dan mengirim pesanan; pembayarannya di kasir.
+              Harga dan ketersediaan mengikuti menu aktif di outlet.
             </p>
 
             <div className="summary-actions">
+              <PillLink href="/order" icon={<Store aria-hidden="true" size={17} strokeWidth={2.25} />}>
+                Pesan di outlet
+              </PillLink>
               <PillButton
+                tone="outline"
                 onClick={copyList}
                 icon={
                   copyState === "done" ? (
@@ -100,15 +103,6 @@ export function OrderSummary({ open, onClose }: { open: boolean; onClose: () => 
               >
                 {copyState === "done" ? "Tersalin" : "Salin daftar"}
               </PillButton>
-              <PillLink
-                tone="outline"
-                href={brand.instagramUrl}
-                target="_blank"
-                rel="noreferrer"
-                icon={<AtSign aria-hidden="true" size={17} strokeWidth={2.25} />}
-              >
-                Instagram Tooday
-              </PillLink>
             </div>
             <p className="summary-status" role="status">
               {copyState === "done" && "Daftar tersalin. Tunjukkan atau kirim saat memesan."}

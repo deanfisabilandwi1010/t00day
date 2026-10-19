@@ -40,11 +40,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="id" className={`${fredoka.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <body>
         {/* Skrip awal: menandai JS aktif (kelas js) dan memasang is-loading untuk layar pembuka (sekali per
-            sesi, tidak pada reduced-motion). Berjalan sebelum isi body dilukis, jadi tidak berkedip.
+            sesi, hanya di beranda, tidak pada reduced-motion). Halaman pesan/kasir/antrean tidak memakai preloader. Berjalan sebelum isi body dilukis, jadi tidak berkedip.
             Bila bundel gagal berjalan dalam 4 detik, kedua kelas dilepas agar halaman tetap terbuka.
             SENGAJA di <body>, bukan <head>: host seperti Netlify menyisipkan komentar ke <head>, dan elemen
             React di sana lalu gagal hydration sehingga React merender ulang halaman dan menghapus kelas ini. */}
-        <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: "var d=document.documentElement;d.classList.add('js');try{if(!sessionStorage.getItem('tooday-intro')&&!matchMedia('(prefers-reduced-motion: reduce)').matches)d.classList.add('is-loading')}catch(e){}setTimeout(function(){if(!window.__toodayReveal)d.classList.remove('js','is-loading')},4000)" }} />
+        <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: "var d=document.documentElement;d.classList.add('js');try{if(location.pathname==='/'&&!sessionStorage.getItem('tooday-intro')&&!matchMedia('(prefers-reduced-motion: reduce)').matches)d.classList.add('is-loading')}catch(e){}setTimeout(function(){if(!window.__toodayReveal)d.classList.remove('js','is-loading')},4000)" }} />
         {children}
       </body>
     </html>

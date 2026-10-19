@@ -17,6 +17,10 @@ export function FinalCTA() {
         <div className="cta-actions" data-reveal="right">
           <PillLink href="#menu">Lihat Menu</PillLink>
           <OpenListButton />
+          <PillLink href="/order" tone="olive">
+            Pesan di outlet
+          </PillLink>
+          <p className="cta-order-note">Di outlet? Pilih dari HP, kirim pesanan, lalu bayar di kasir.</p>
         </div>
 
         <a href={brand.instagramUrl} target="_blank" rel="noreferrer" className="cta-ig" data-reveal>

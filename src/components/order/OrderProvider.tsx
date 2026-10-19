@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import { getItem, type MenuItem } from "@/data/menu";
+import { menu, getItem, type MenuItem } from "@/data/menu";
+import { cart, useCart } from "@/lib/order/cart";
 import { gsap, MQ } from "@/lib/motion";
 import { OrderSummary } from "./OrderSummary";
 import { ProductDialog } from "./ProductDialog";
@@ -72,29 +73,28 @@ function flyToList(from: HTMLElement | null | undefined) {
   });
 }
 
+const KNOWN = new Set(menu.map((item) => item.id));
+
+/**
+ * Pilihanku di homepage memakai keranjang yang sama dengan halaman /order (localStorage di perangkat ini).
+ * Menyimpan ke Pilihanku tidak mengirim apa pun ke kasir; pengiriman hanya terjadi di /order setelah review.
+ */
 export function OrderProvider({ children }: { children: ReactNode }) {
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const cartState = useCart();
   const [listOpen, setListOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [announcement, setAnnouncement] = useState("");
 
   const add = useCallback((id: string, qty = 1, from?: HTMLElement | null) => {
-    setQuantities((current) => ({ ...current, [id]: Math.min(20, (current[id] ?? 0) + qty) }));
+    cart.add(id, qty);
     setAnnouncement(`${qty} ${getItem(id).name} ditambahkan ke pilihanmu.`);
     flyToList(from);
   }, []);
 
-  const setQty = useCallback((id: string, qty: number) => {
-    setQuantities((current) => {
-      const next = { ...current };
-      if (qty <= 0) delete next[id];
-      else next[id] = Math.min(20, qty);
-      return next;
-    });
-  }, []);
+  const setQty = useCallback((id: string, qty: number) => cart.setSkuQty(id, qty), []);
 
-  const clear = useCallback(() => setQuantities({}), []);
+  const clear = useCallback(() => cart.clear(), []);
   const openList = useCallback(() => {
     setDetailOpen(false);
     setListOpen(true);
@@ -105,7 +105,12 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<OrderContextValue>(() => {
-    const lines = Object.entries(quantities).map(([id, qty]) => ({ item: getItem(id), qty }));
+    // Baris dengan catatan berbeda (dibuat di /order) digabung per menu untuk tampilan ringkas homepage.
+    const quantities = new Map<string, number>();
+    for (const line of cartState.lines) {
+      if (KNOWN.has(line.sku)) quantities.set(line.sku, (quantities.get(line.sku) ?? 0) + line.qty);
+    }
+    const lines = [...quantities].map(([id, qty]) => ({ item: getItem(id), qty }));
     return {
       lines,
       count: lines.reduce((sum, line) => sum + line.qty, 0),
@@ -116,7 +121,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       openList,
       openDetail,
     };
-  }, [quantities, add, setQty, clear, openList, openDetail]);
+  }, [cartState.lines, add, setQty, clear, openList, openDetail]);
 
   return (
     <OrderContext.Provider value={value}>

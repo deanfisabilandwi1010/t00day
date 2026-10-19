@@ -100,6 +100,9 @@ export function SiteHeader() {
                 </a>
               </li>
             ))}
+            <li>
+              <a href="/order">Pesan di outlet</a>
+            </li>
           </ul>
           <a href={brand.instagramUrl} target="_blank" rel="noreferrer" className="mobile-nav-ig">
             <AtSign aria-hidden="true" size={18} /> {brand.instagramHandle}

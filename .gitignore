@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -40,5 +41,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# docs
-docs/
+# docs: catatan internal tidak di-commit, kecuali dokumentasi sistem pesanan
+docs/*
+!docs/order-system/
+asset/docs/
+# hasil QA lokal
+/qa-out/

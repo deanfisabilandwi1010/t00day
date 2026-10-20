@@ -62,7 +62,7 @@ Site configuration → Environment variables:
 | Variabel | Nilai | Rahasia |
 |---|---|---|
 | `DATABASE_URL` | connection string pooler Supabase | **Ya**, scope Functions/Runtime |
-| `NEXT_PUBLIC_SITE_URL` | domain final, mis. `https://toodaycoffe.netlify.app` | Tidak |
+| `NEXT_PUBLIC_SITE_URL` | domain final, mis. `https://toodaycafee.vercel.app` | Tidak |
 | `NEXT_PUBLIC_DEFAULT_OUTLET` | `tooday-main` | Tidak |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | opsional, untuk nudge Realtime | Tidak (publishable key memang publik) |
 | `DATABASE_POOL_MAX` | opsional, default 5 | Tidak |
@@ -85,7 +85,7 @@ Project memakai Next.js App Router dengan Route Handlers; Netlify menjalankannya
 
 - Halaman staf `/kasir/qr`: kartu siap cetak (logo, "Scan, pilih, lalu bayar di kasir.", QR, tiga langkah, URL teks), tombol **Cetak / PDF** dan **Unduh PNG**. Isi kode meja bila outlet memakai QR per meja.
 - Atau dari terminal: `NEXT_PUBLIC_SITE_URL=https://<domain> npm run qr -- --outlet tooday-main [--table M03]` → `docs/order-system/qr/*.png|svg`.
-- File yang sudah dibuat: `docs/order-system/qr/tooday-qr-tooday-main.png` untuk `https://toodaycoffe.netlify.app/order?outlet=tooday-main&source=qr`. Isinya sudah diverifikasi dengan decoder perangkat lunak, **belum dengan kamera HP**. Pindai dengan minimal dua HP (Android dan iPhone) dari jarak meja sebelum mencetak, dan buat ulang bila domain final berbeda.
+- File yang sudah dibuat: `docs/order-system/qr/tooday-qr-tooday-main.png` untuk `https://toodaycafee.vercel.app/order?outlet=tooday-main&source=qr` (kartu siap cetak: `tooday-qr-card-tooday-main.png`). Isinya sudah diverifikasi dengan decoder perangkat lunak, **belum dengan kamera HP**. Pindai dengan minimal dua HP (Android dan iPhone) dari jarak meja sebelum mencetak, dan buat ulang bila domain final berbeda.
 - Jaga area putih di sekitar QR (quiet zone); jangan menempel stiker atau ornamen di atas modul QR.
 
 ## 6. Membuka order

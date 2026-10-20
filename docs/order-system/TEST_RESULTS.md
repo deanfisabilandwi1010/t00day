@@ -45,7 +45,7 @@ Cara mengulang: `npm run db:local && npm run db:migrate && npm run db:seed -- --
 | Mobile dan keyboard | E2E: 360/390 px tanpa scroll horizontal; kasir 768/390/1180 tidak terpotong; Tab sampai tombol Tambah, Enter, Escape menutup sheet | Lolos |
 | Reduced motion | E2E: 14 menu tampil dengan `reducedMotion: reduce`; CSS mematikan animasi tiket/papan | Lolos |
 | Refresh deep link di deployment | Lokal: `/pesanan/<id>`, `/kasir`, `/antrean`, `/api/*` berjalan di `next start` | **Belum diverifikasi di Netlify** |
-| QR | `docs/order-system/qr/tooday-qr-tooday-main.png` didekode ulang dengan jsQR → `https://toodaycoffe.netlify.app/order?outlet=tooday-main&source=qr` | **Belum dipindai dengan kamera HP** |
+| QR | `docs/order-system/qr/tooday-qr-tooday-main.png` didekode ulang dengan jsQR → `https://toodaycafee.vercel.app/order?outlet=tooday-main&source=qr` | **Belum dipindai dengan kamera HP** |
 
 ## Screenshot (`screenshots/`)
 

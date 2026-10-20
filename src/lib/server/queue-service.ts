@@ -1,7 +1,7 @@
 import "server-only";
 import {
   formatCode,
-  STAFF_ACTION_FROM,
+  actionAllowed,
   TERMINAL,
   type OrderEventView,
   type OrderStatus,
@@ -24,6 +24,12 @@ export interface OrderRow {
   guest_session_id: string;
   queue_number: number;
   order_type: "DINE_IN" | "TAKEAWAY";
+  fulfillment: "COUNTER" | "DELIVERY";
+  delivery_location_name: string | null;
+  delivery_detail: string | null;
+  delivery_pay_hint: "QRIS" | "TUNAI" | null;
+  accepted_at: Date | null;
+  delivering_at: Date | null;
   table_code: string | null;
   nickname: string | null;
   order_status: OrderStatus;
@@ -68,6 +74,12 @@ export function itemsView(items: ItemRow[]) {
   }));
 }
 
+export function deliveryView(order: OrderRow) {
+  return order.fulfillment === "DELIVERY"
+    ? { location: order.delivery_location_name ?? "", detail: order.delivery_detail, payHint: order.delivery_pay_hint }
+    : null;
+}
+
 export function staffView(order: OrderRow, items: ItemRow[]): StaffOrderView {
   return {
     id: order.id,
@@ -75,6 +87,10 @@ export function staffView(order: OrderRow, items: ItemRow[]): StaffOrderView {
     queueNumber: order.queue_number,
     status: order.order_status,
     payment: order.payment_status,
+    fulfillment: order.fulfillment,
+    delivery: deliveryView(order),
+    acceptedAt: iso(order.accepted_at),
+    deliveringAt: iso(order.delivering_at),
     orderType: order.order_type,
     table: order.table_code,
     nickname: order.nickname,
@@ -141,7 +157,7 @@ export async function expireDue(tx: Tx, outletId: string): Promise<number> {
   const rows = await tx<{ id: string; from_status: string }[]>`
     with due as (
       select id, order_status from tooday.orders
-      where outlet_id = ${outletId} and order_status in ('WAITING_PAYMENT', 'DEFERRED') and expires_at <= now()
+      where outlet_id = ${outletId} and order_status in ('WAITING_PAYMENT', 'DEFERRED', 'DELIVERY_REQUESTED') and expires_at <= now()
       for update
     )
     update tooday.orders o
@@ -201,7 +217,7 @@ export async function autoCallNext(tx: Tx, outlet: Pick<LockedOutlet, "id" | "co
 export async function maybeExpire(outletId: string) {
   const [due] = await db()`
     select 1 from tooday.orders
-    where outlet_id = ${outletId} and order_status in ('WAITING_PAYMENT', 'DEFERRED') and expires_at <= now()
+    where outlet_id = ${outletId} and order_status in ('WAITING_PAYMENT', 'DEFERRED', 'DELIVERY_REQUESTED') and expires_at <= now()
     limit 1`;
   if (!due) return;
   await withOutletLock(outletId, async (tx) => {
@@ -256,7 +272,7 @@ export async function performStaffAction(staff: StaffContext, orderId: string, i
     const order = await orderForUpdate(tx, outlet.id, orderId);
     const current = () => orderView(tx, order.id);
 
-    if (order.version !== input.expectedVersion || !STAFF_ACTION_FROM[input.action].includes(order.order_status)) {
+    if (order.version !== input.expectedVersion || !actionAllowed(input.action, order.fulfillment, order.order_status)) {
       throw new ApiError(409, "STATE_CHANGED", "Pesanan ini baru saja berubah. Tampilan sudah diperbarui, cek lagi sebelum melanjutkan.", {
         order: await current(),
       });
@@ -350,6 +366,61 @@ export async function performStaffAction(staff: StaffContext, orderId: string, i
         await logEvent(tx, { ...actor, action: "READY_RECALLED", from, to });
         break;
       }
+      // ---------------- QR Antar ----------------
+      case "accept": {
+        await tx`
+          update tooday.orders set order_status = 'QUEUED', accepted_at = now(), expires_at = null,
+                 updated_at = now(), version = version + 1
+          where id = ${order.id}`;
+        to = "QUEUED";
+        await logEvent(tx, { ...actor, action: "DELIVERY_ACCEPTED", from, to });
+        break;
+      }
+      case "reject": {
+        if (!reason) throw new ApiError(400, "VALIDATION", "Tulis alasan singkat kenapa pesanan antar ditolak.");
+        await tx`
+          update tooday.orders set order_status = 'CANCELLED', closed_at = now(), close_reason = ${reason},
+                 expires_at = null, updated_at = now(), version = version + 1
+          where id = ${order.id}`;
+        to = "CANCELLED";
+        await logEvent(tx, { ...actor, action: "DELIVERY_REJECTED", from, to, reason });
+        break;
+      }
+      case "deliver": {
+        await tx`
+          update tooday.orders set order_status = 'DELIVERING', delivering_at = now(), updated_at = now(), version = version + 1
+          where id = ${order.id}`;
+        to = "DELIVERING";
+        await logEvent(tx, { ...actor, action: "DELIVERING", from, to });
+        break;
+      }
+      case "confirm-delivery": {
+        const method = input.method?.trim().toUpperCase();
+        if (method !== "QRIS" && method !== "TUNAI") {
+          throw new ApiError(400, "VALIDATION", "Pilih metode pembayaran yang diterima: QRIS atau tunai.");
+        }
+        // Lunas dan selesai sekaligus; nominal dari pesanan yang tersimpan.
+        await tx`
+          insert into tooday.payment_records (order_id, amount_rupiah, method, received_by)
+          values (${order.id}, ${order.total_rupiah}, ${method}, ${staff.userId})`;
+        await tx`
+          update tooday.orders set order_status = 'COMPLETED', payment_status = 'PAID', paid_at = now(),
+                 completed_at = now(), closed_at = now(), updated_at = now(), version = version + 1
+          where id = ${order.id}`;
+        to = "COMPLETED";
+        await logEvent(tx, { ...actor, action: "DELIVERY_PAID", from, to, detail: { amount: order.total_rupiah, method } });
+        break;
+      }
+      case "undelivered": {
+        if (!reason) throw new ApiError(400, "VALIDATION", "Tulis alasan kenapa pesanan gagal diantar/dibayar.");
+        await tx`
+          update tooday.orders set order_status = 'UNDELIVERED', closed_at = now(), close_reason = ${reason},
+                 updated_at = now(), version = version + 1
+          where id = ${order.id}`;
+        to = "UNDELIVERED";
+        await logEvent(tx, { ...actor, action: "UNDELIVERED", from, to, reason, detail: { amount: order.total_rupiah } });
+        break;
+      }
       case "complete": {
         await tx`
           update tooday.orders set order_status = 'COMPLETED', completed_at = now(), closed_at = now(),
@@ -388,6 +459,7 @@ export async function callNext(staff: StaffContext, idempotencyKey: string) {
 
 export interface SettingsInput {
   acceptingOrders?: boolean;
+  acceptingDelivery?: boolean;
   counterReady?: boolean;
   autoCallNext?: boolean;
 }
@@ -398,6 +470,13 @@ export async function updateSettings(staff: StaffContext, input: SettingsInput) 
     if (input.acceptingOrders !== undefined && input.acceptingOrders !== outlet.accepting_orders) {
       await tx`update tooday.outlets set accepting_orders = ${input.acceptingOrders} where id = ${outlet.id}`;
       changes.acceptingOrders = { from: outlet.accepting_orders, to: input.acceptingOrders };
+    }
+    if (input.acceptingDelivery !== undefined) {
+      const [row] = await tx<{ accepting_delivery: boolean }[]>`select accepting_delivery from tooday.outlets where id = ${outlet.id}`;
+      if (row.accepting_delivery !== input.acceptingDelivery) {
+        await tx`update tooday.outlets set accepting_delivery = ${input.acceptingDelivery} where id = ${outlet.id}`;
+        changes.acceptingDelivery = { from: row.accepting_delivery, to: input.acceptingDelivery };
+      }
     }
     const counterReady = input.counterReady ?? outlet.counter_ready;
     const autoCall = input.autoCallNext ?? outlet.auto_call_next;
@@ -454,9 +533,9 @@ export async function kasirSnapshot(staff: StaffContext, since: number | null) {
 
   const sql = db();
   const [settings] = await sql<
-    { name: string; accepting_orders: boolean; counter_ready: boolean; auto_call_next: boolean; payment_methods: string[]; timezone: string; feed_version: string }[]
+    { name: string; accepting_orders: boolean; accepting_delivery: boolean; counter_ready: boolean; auto_call_next: boolean; payment_methods: string[]; timezone: string; feed_version: string }[]
   >`
-    select o.name, o.accepting_orders, o.payment_methods, o.timezone, s.counter_ready, s.auto_call_next, s.feed_version
+    select o.name, o.accepting_orders, o.accepting_delivery, o.payment_methods, o.timezone, s.counter_ready, s.auto_call_next, s.feed_version
     from tooday.outlets o join tooday.service_state s on s.outlet_id = o.id where o.id = ${staff.outletId}`;
   const orders = await sql<OrderRow[]>`
     select * from tooday.orders
@@ -479,6 +558,7 @@ export async function kasirSnapshot(staff: StaffContext, since: number | null) {
       name: settings.name,
       timezone: settings.timezone,
       acceptingOrders: settings.accepting_orders,
+      acceptingDelivery: settings.accepting_delivery,
       counterReady: settings.counter_ready,
       autoCallNext: settings.auto_call_next,
       paymentMethods: settings.payment_methods,

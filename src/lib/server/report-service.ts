@@ -44,7 +44,19 @@ export interface SalesReport {
   from: string;
   to: string;
   timezone: string;
-  summary: { revenue: number; transactions: number; avgTicket: number; itemsSold: number; cancelled: number; expired: number };
+  summary: {
+    revenue: number;
+    transactions: number;
+    avgTicket: number;
+    itemsSold: number;
+    cancelled: number;
+    expired: number;
+    /** Pesanan QR Antar yang sudah dibuat/diantar tetapi tidak dibayar. */
+    undelivered: number;
+    undeliveredAmount: number;
+  };
+  /** Pemasukan per jalur: Kasir (bayar di counter) dan QR Antar (bayar saat diantar). */
+  byChannel: { channel: string; transactions: number; revenue: number }[];
   byDay: { date: string; transactions: number; revenue: number; itemsSold: number }[];
   byItem: { sku: string; name: string; quantity: number; revenue: number }[];
   byStaff: { name: string; transactions: number; revenue: number }[];
@@ -70,7 +82,7 @@ export async function salesReport(staff: StaffContext, from: string, to: string)
     select p.id as payment_id, p.amount_rupiah, p.method, p.received_at,
            (p.received_at at time zone ${tz})::date as local_date,
            extract(hour from p.received_at at time zone ${tz})::int as local_hour,
-           o.id as order_id, o.queue_number, o.order_type, o.item_count, u.display_name
+           o.id as order_id, o.queue_number, o.order_type, o.item_count, o.fulfillment, u.display_name
     from tooday.payment_records p
     join tooday.orders o on o.id = p.order_id
     join tooday.staff_users u on u.id = p.received_by
@@ -80,9 +92,11 @@ export async function salesReport(staff: StaffContext, from: string, to: string)
   const [summary] = await sql<{ revenue: string | null; transactions: number; items: string | null }[]>`
     with paid as (${paid})
     select sum(amount_rupiah)::bigint as revenue, count(*)::int as transactions, sum(item_count)::bigint as items from paid`;
-  const [closed] = await sql<{ cancelled: number; expired: number }[]>`
+  const [closed] = await sql<{ cancelled: number; expired: number; undelivered: number; undelivered_amount: string | null }[]>`
     select count(*) filter (where order_status = 'CANCELLED')::int as cancelled,
-           count(*) filter (where order_status = 'EXPIRED')::int as expired
+           count(*) filter (where order_status = 'EXPIRED')::int as expired,
+           count(*) filter (where order_status = 'UNDELIVERED')::int as undelivered,
+           sum(total_rupiah) filter (where order_status = 'UNDELIVERED')::bigint as undelivered_amount
     from tooday.orders
     where outlet_id = ${staff.outletId} and closed_at is not null
       and (closed_at at time zone ${tz})::date between ${from}::date and ${to}::date`;
@@ -100,6 +114,11 @@ export async function salesReport(staff: StaffContext, from: string, to: string)
     with paid as (${paid})
     select display_name as name, count(*)::int as transactions, sum(amount_rupiah)::bigint as revenue
     from paid group by display_name order by revenue desc`;
+  const byChannel = await sql<{ channel: string; transactions: number; revenue: string }[]>`
+    with paid as (${paid})
+    select case when fulfillment = 'DELIVERY' then 'QR Antar' else 'Kasir' end as channel,
+           count(*)::int as transactions, sum(amount_rupiah)::bigint as revenue
+    from paid group by 1 order by revenue desc`;
   const byMethod = await sql<{ method: string; transactions: number; revenue: string }[]>`
     with paid as (${paid})
     select coalesce(method, 'Tidak dicatat') as method, count(*)::int as transactions, sum(amount_rupiah)::bigint as revenue
@@ -138,10 +157,13 @@ export async function salesReport(staff: StaffContext, from: string, to: string)
       itemsSold: Number(summary.items ?? 0),
       cancelled: closed.cancelled,
       expired: closed.expired,
+      undelivered: closed.undelivered,
+      undeliveredAmount: Number(closed.undelivered_amount ?? 0),
     },
     byDay: byDay.map((row) => ({ date: row.date, transactions: row.transactions, revenue: Number(row.revenue), itemsSold: Number(row.items) })),
     byItem: byItem.map((row) => ({ sku: row.sku, name: row.name, quantity: Number(row.quantity), revenue: Number(row.revenue) })),
     byStaff: byStaff.map((row) => ({ name: row.name, transactions: row.transactions, revenue: Number(row.revenue) })),
+    byChannel: byChannel.map((row) => ({ channel: row.channel, transactions: row.transactions, revenue: Number(row.revenue) })),
     byMethod: byMethod.map((row) => ({ method: row.method, transactions: row.transactions, revenue: Number(row.revenue) })),
     byHour: byHour.map((row) => ({ hour: row.hour, transactions: row.transactions, revenue: Number(row.revenue) })),
     transactions,

@@ -7,8 +7,8 @@ Dijalankan ulang 19 Oktober 2026 (pertama 15 Oktober) di Windows 10, Node 26.7, 
 | Typecheck | `npm run typecheck` | Lolos, 0 error |
 | Lint | `npm run lint` | Lolos, 0 error, 0 warning |
 | Build | `npm run build` | Lolos; route API dinamis, halaman pesanan/kasir/antrean statis + data dari API |
-| Integration test (HTTP + database) | `npm run test:api` | **36/36 lolos** (termasuk pencatatan, laporan, kelola menu, unggah foto) |
-| Alur lintas sesi di browser | `npm run qa:order` | **61/61 lolos** (termasuk unggah foto dan homepage mengikuti Kelola menu), screenshot di `screenshots/` |
+| Integration test (HTTP + database) | `npm run test:api` | **42/42 lolos** (termasuk pencatatan, laporan, kelola menu, unggah foto, QR Antar) |
+| Alur lintas sesi di browser | `npm run qa:order` | **72/72 lolos** (termasuk unggah foto, homepage mengikuti Kelola menu, dan siklus QR Antar), screenshot di `screenshots/` |
 | Regresi homepage (skrip lama) | `node scripts/qa-interactions.mjs` | **26/26 lolos** |
 | Overflow homepage 360–1440 px | `node scripts/qa-screens.mjs` | `overflowX: 0` di semua lebar, tanpa gambar rusak atau error konsol. Di 1440 px skrip menandai 2 SVG coretan dekoratif sebagai "wide"; tidak menimbulkan scroll horizontal. Belum saya bandingkan apakah tanda ini sudah ada sebelum perubahan. |
 
@@ -66,6 +66,7 @@ Cara mengulang: `npm run db:local && npm run db:migrate && npm run db:seed -- --
 | `23-report-daily-1366.png`, `24-report-monthly-1366.png` | Laporan harian dan bulanan (manager) |
 | `25-menu-manager-1366.png`, `26-menu-item-form-1366.png` | Kelola menu dan form menu baru (foto unggahan terpilih) dengan pratinjau |
 | `27-home-live-section-1366.png` | Homepage: section dan menu baru dari Kelola menu, dengan foto unggahan |
+| `29-qr-antar-card.png`, `30-order-antar-390.png`, `31-kasir-antar-slip-1180.png`, `32-ticket-delivering-390.png` | QR Antar: kartu QR lokasi, form antar di HP, slip antar kasir, tiket "sedang diantar" |
 
 ## Bug yang ditemukan dan diperbaiki selama pengujian
 

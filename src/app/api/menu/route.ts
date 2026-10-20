@@ -10,7 +10,8 @@ export const GET = handle(async (request: NextRequest) => {
   if (!outlet.success) throw new ApiError(404, "NOT_FOUND", "Outlet tidak dikenali. Coba pindai ulang QR di outlet.");
   const table = params.get("table");
   const validTable = table && /^[A-Za-z0-9-]{1,10}$/.test(table) ? table : null;
-  const result = await publicMenu(outlet.data, validTable);
+  const antar = params.get("antar");
+  const result = await publicMenu(outlet.data, validTable, antar && /^[a-z0-9][a-z0-9-]{0,39}$/.test(antar) ? antar : null);
   if (table && !validTable) result.outlet.tableInvalid = true;
   return json(result);
 });

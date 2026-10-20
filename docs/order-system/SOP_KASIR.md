@@ -80,6 +80,19 @@ Aplikasi sengaja tidak punya tombol untuk membatalkan atau mengubah pesanan yang
 3. Lanjutkan status pesanan seperti biasa (atau **Selesaikan** bila sudah ditangani), jangan dibiarkan menggantung di layar.
 4. Pengelola mencocokkan buku koreksi dengan **Riwayat** (total pembayaran tercatat per tanggal) saat tutup kas.
 
+## QR Antar (pesanan diantar, bayar saat diterima)
+
+Untuk pengunjung yang duduk di tempat lain di area Tooday. Pesanan **dibuat dulu, dibayar saat diantar**.
+
+1. **Buka**: nyalakan saklar **Pesanan antar** sampai tertulis "QR Antar dibuka". Matikan saat ramai atau saat tidak ada yang bisa mengantar; pesanan counter tetap jalan.
+2. **Terima**: pesanan antar masuk ke tab **Antar** → *Menunggu diterima* (ada banner "(antar)"). Cek lokasi dan isinya, lalu **Terima pesanan antar**. Tidak bisa? **Tolak** dengan alasan (pelanggan melihat alasannya).
+3. **Buat**: **Mulai dibuat** → **Siap diantar** (pesanan antar juga muncul di tab **Dibuat**).
+4. **Antar**: tekan **Antar sekarang**, bawa pesanan dan **stiker QRIS** (plus kembalian bila pelanggan memilih tunai). Lihat **slip antar** di panel kanan: lokasi, nama, petunjuk, dan total yang ditagih.
+5. **Terima bayar**: setelah pelanggan membayar, tekan **Pembayaran diterima** → pilih **QRIS** atau **Tunai** → **Ya, pembayaran diterima**. Untuk QRIS, pastikan dulu notifikasi dana masuk di aplikasi merchant dengan nominal yang sama. Pesanan langsung lunas dan selesai.
+6. **Gagal diantar** (pemesan tidak ada atau menolak bayar): tekan **Gagal diantar** dan pilih alasan. Tercatat di laporan sebagai pesanan antar tidak terbayar.
+
+Pengelola mengatur daftar lokasi antar dan mencetak **QR per lokasi** di halaman **QR** (`/kasir/qr` → *Lokasi QR Antar* → **Buat QR**).
+
 ## Total dan laporan
 
 - Banner hitam di atas daftar menunjukkan **Pembayaran tercatat hari ini** dan berapa yang kamu terima sendiri. Angka ini hanya berisi pembayaran yang sudah kamu konfirmasi; pesanan belum dibayar tidak dihitung.

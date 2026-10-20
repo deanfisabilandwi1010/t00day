@@ -4,20 +4,21 @@ import { formatCode, type GuestOrderView, type OutletInfo, type PublicMenuItem }
 import type { CreateOrderInput } from "@/lib/validation/order";
 import { bumpFeed, db, withOutletLock, type Tx } from "./db";
 import { ApiError } from "./http";
-import { expireDue, itemsView, loadItems, logEvent, maybeExpire, type ItemRow, type OrderRow } from "./queue-service";
+import { deliveryView, expireDue, itemsView, loadItems, logEvent, maybeExpire, type ItemRow, type OrderRow } from "./queue-service";
 
 export interface OutletRow {
   id: string;
   slug: string;
   name: string;
   accepting_orders: boolean;
+  accepting_delivery: boolean;
   counter_ready: boolean;
   feed_version: string;
 }
 
 export async function findOutlet(slug: string): Promise<OutletRow> {
   const [outlet] = await db()<OutletRow[]>`
-    select o.id, o.slug, o.name, o.accepting_orders, s.counter_ready, s.feed_version
+    select o.id, o.slug, o.name, o.accepting_orders, o.accepting_delivery, s.counter_ready, s.feed_version
     from tooday.outlets o join tooday.service_state s on s.outlet_id = o.id
     where o.slug = ${slug}`;
   if (!outlet) throw new ApiError(404, "NOT_FOUND", "Outlet tidak dikenali. Coba pindai ulang QR di outlet.");
@@ -28,6 +29,7 @@ export async function findOutlet(slug: string): Promise<OutletRow> {
 export async function publicMenu(
   slug: string,
   tableCode: string | null,
+  deliveryCode: string | null = null,
 ): Promise<{ outlet: OutletInfo; sections: { id: string; name: string }[]; items: PublicMenuItem[]; feedVersion: number }> {
   const outlet = await findOutlet(slug);
   let table: string | null = null;
@@ -38,6 +40,11 @@ export async function publicMenu(
     if (row) table = row.code;
     else tableInvalid = true;
   }
+  // Lokasi QR Antar yang aktif; ditampilkan hanya bila pesanan antar sedang dibuka.
+  const locations = await db()<{ code: string; name: string }[]>`
+    select code, name from tooday.delivery_locations where outlet_id = ${outlet.id} and active order by sort_order, name`;
+  const acceptingDelivery = outlet.accepting_orders && outlet.accepting_delivery && locations.length > 0;
+  const presetLocation = deliveryCode && locations.some((location) => location.code === deliveryCode) ? deliveryCode : null;
   // Hanya section dan menu yang aktif; urutan mengikuti pengaturan manager.
   const items = await db()<
     { sku: string; name: string; section_id: string; category: string; description: string | null; price_rupiah: number | null; image_url: string | null; available: boolean; version: number }[]
@@ -58,6 +65,9 @@ export async function publicMenu(
       counterReady: outlet.counter_ready,
       table,
       tableInvalid,
+      acceptingDelivery,
+      deliveryLocations: acceptingDelivery ? locations : [],
+      presetLocation: acceptingDelivery ? presetLocation : null,
     },
     sections,
     items: items.map((item) => ({
@@ -97,6 +107,9 @@ async function guestView(sql: Tx | ReturnType<typeof db>, order: OrderRow, items
     code: formatCode(order.queue_number),
     status: order.order_status,
     payment: order.payment_status,
+    fulfillment: order.fulfillment,
+    delivery: deliveryView(order),
+    closeReason: order.close_reason,
     orderType: order.order_type,
     table: order.table_code,
     nickname: order.nickname,
@@ -125,7 +138,7 @@ export async function getGuestOrder(guestId: string, orderId: string): Promise<G
   const [order] = await sql<OrderRow[]>`
     select * from tooday.orders where id = ${orderId} and guest_session_id = ${guestId}`;
   if (!order) throw new ApiError(404, "NOT_FOUND", "Pesanan tidak ditemukan di perangkat ini.");
-  if (order.expires_at && order.expires_at <= new Date() && ["WAITING_PAYMENT", "DEFERRED"].includes(order.order_status)) {
+  if (order.expires_at && order.expires_at <= new Date() && ["WAITING_PAYMENT", "DEFERRED", "DELIVERY_REQUESTED"].includes(order.order_status)) {
     await maybeExpire(order.outlet_id);
     return viewById(sql, orderId);
   }
@@ -144,7 +157,7 @@ export async function listGuestOrders(guestId: string, outletSlug: string) {
     select o.id, o.queue_number, o.order_status, o.total_rupiah, o.created_at
     from tooday.orders o join tooday.outlets t on t.id = o.outlet_id
     where o.guest_session_id = ${guestId} and t.slug = ${outletSlug}
-      and (o.order_status not in ('COMPLETED', 'CANCELLED', 'EXPIRED') or o.closed_at > now() - interval '3 hours')
+      and (o.order_status not in ('COMPLETED', 'CANCELLED', 'EXPIRED', 'UNDELIVERED') or o.closed_at > now() - interval '3 hours')
     order by o.created_at desc limit 10`;
   return rows.map((row) => ({
     id: row.id,
@@ -164,6 +177,8 @@ function requestHash(input: CreateOrderInput): string {
     orderType: input.orderType,
     table: input.orderType === "DINE_IN" ? (input.table ?? null) : null,
     nickname: input.nickname ?? null,
+    fulfillment: input.fulfillment,
+    delivery: input.fulfillment === "DELIVERY" ? [input.delivery?.location ?? null, input.delivery?.detail ?? null, input.delivery?.payHint ?? null] : null,
     lines: input.lines.map((line) => [line.sku, line.quantity, line.note ?? null]),
   });
   return createHash("sha256").update(canonical).digest("hex");
@@ -193,9 +208,25 @@ export async function createOrder(guestId: string, input: CreateOrderInput): Pro
       throw new ApiError(409, "ORDERS_CLOSED", "Maaf, pemesanan lewat QR sedang ditutup. Pilihanmu tetap tersimpan; pesan langsung ke kasir, ya.");
     }
 
+    // Pesanan antar: wajib dibuka kasir, lokasi aktif, dan nama panggilan agar kasir bisa menemukan pemesan.
+    let deliveryLocation: { id: string; name: string } | null = null;
+    if (input.fulfillment === "DELIVERY") {
+      const [settings] = await tx<{ accepting_delivery: boolean }[]>`select accepting_delivery from tooday.outlets where id = ${locked.id}`;
+      if (!settings.accepting_delivery) {
+        throw new ApiError(409, "ORDERS_CLOSED", "Maaf, QR Antar sedang tidak tersedia. Pesan dan ambil di counter, ya.");
+      }
+      if (!input.nickname) throw new ApiError(400, "VALIDATION", "Isi nama panggilan supaya kasir bisa menemukanmu saat mengantar.");
+      const [row] = await tx<{ id: string; name: string }[]>`
+        select id, name from tooday.delivery_locations where outlet_id = ${locked.id} and code = ${input.delivery?.location ?? ""} and active`;
+      if (!row) throw new ApiError(400, "VALIDATION", "Pilih lokasi antar dari daftar.");
+      deliveryLocation = row;
+    }
+
+    // Semua pesanan yang belum dibayar dihitung, termasuk pesanan antar yang sedang diproses.
     const [active] = await tx<{ count: number }[]>`
       select count(*)::int as count from tooday.orders
-      where guest_session_id = ${guestId} and order_status in ('WAITING_PAYMENT', 'CALLED', 'DEFERRED')`;
+      where guest_session_id = ${guestId} and payment_status = 'UNPAID'
+        and order_status not in ('CANCELLED', 'EXPIRED', 'UNDELIVERED')`;
     if (active.count >= MAX_ACTIVE_PER_SESSION) {
       throw new ApiError(429, "TOO_MANY_ACTIVE", "Kamu masih punya beberapa pesanan yang belum dibayar. Selesaikan dulu di kasir, ya.");
     }
@@ -238,9 +269,9 @@ export async function createOrder(guestId: string, input: CreateOrderInput): Pro
       });
     }
 
-    // 3. Meja: hanya untuk dine-in, harus aktif di outlet ini.
+    // 3. Meja: hanya untuk dine-in di counter, harus aktif di outlet ini.
     let table: { id: string; code: string } | null = null;
-    if (input.orderType === "DINE_IN" && input.table) {
+    if (input.fulfillment === "COUNTER" && input.orderType === "DINE_IN" && input.table) {
       const [row] = await tx<{ id: string; code: string }[]>`
         select id, code from tooday.dining_tables where outlet_id = ${locked.id} and code = ${input.table} and active`;
       if (!row) throw new ApiError(400, "VALIDATION", "Kode meja tidak dikenali. Hapus meja atau pindai ulang QR di meja.");
@@ -257,22 +288,28 @@ export async function createOrder(guestId: string, input: CreateOrderInput): Pro
     const [busy] = await tx`
       select 1 from tooday.orders
       where outlet_id = ${locked.id} and order_status in ('CALLED', 'WAITING_PAYMENT') limit 1`;
-    const callNow = locked.counter_ready && !busy;
+    // Pesanan antar tidak masuk antrean bayar kasir: menunggu diterima dulu.
+    const isDelivery = deliveryLocation !== null;
+    const callNow = !isDelivery && locked.counter_ready && !busy;
+    const status = isDelivery ? "DELIVERY_REQUESTED" : callNow ? "CALLED" : "WAITING_PAYMENT";
 
     const [order] = await tx<{ id: string }[]>`
       insert into tooday.orders (
         outlet_id, guest_session_id, queue_number, display_code, order_type, table_id, table_code, nickname,
         order_status, payment_status, total_rupiah, item_count, queue_entered_at, business_date, expires_at,
-        first_called_at, called_at, call_event_id
+        first_called_at, called_at, call_event_id,
+        fulfillment, delivery_location_id, delivery_location_name, delivery_detail, delivery_pay_hint
       ) values (
-        ${locked.id}, ${guestId}, ${counter.number}, ${formatCode(counter.number)}, ${input.orderType},
+        ${locked.id}, ${guestId}, ${counter.number}, ${formatCode(counter.number)}, ${isDelivery ? "DINE_IN" : input.orderType},
         ${table?.id ?? null}, ${table?.code ?? null}, ${input.nickname ?? null},
-        ${callNow ? "CALLED" : "WAITING_PAYMENT"}, 'UNPAID', ${total},
+        ${status}, 'UNPAID', ${total},
         ${lines.reduce((sum, line) => sum + line.quantity, 0)}, now(),
         (now() at time zone ${locked.timezone})::date,
         now() + make_interval(mins => ${locked.unpaid_ttl_minutes}),
         ${callNow ? tx`now()` : null}, ${callNow ? tx`now()` : null},
-        ${callNow ? tx`nextval('tooday.display_event_seq')` : null}
+        ${callNow ? tx`nextval('tooday.display_event_seq')` : null},
+        ${isDelivery ? "DELIVERY" : "COUNTER"}, ${deliveryLocation?.id ?? null}, ${deliveryLocation?.name ?? null},
+        ${isDelivery ? (input.delivery?.detail ?? null) : null}, ${isDelivery ? (input.delivery?.payHint ?? null) : null}
       ) returning id`;
 
     for (const line of lines) {
@@ -291,9 +328,9 @@ export async function createOrder(guestId: string, input: CreateOrderInput): Pro
       outletId: locked.id,
       orderId: order.id,
       actorType: "GUEST",
-      action: "CREATED",
-      to: "WAITING_PAYMENT",
-      detail: { total, items: lines.length },
+      action: isDelivery ? "DELIVERY_REQUESTED" : "CREATED",
+      to: isDelivery ? "DELIVERY_REQUESTED" : "WAITING_PAYMENT",
+      detail: { total, items: lines.length, ...(isDelivery ? { location: deliveryLocation!.name } : {}) },
     });
     if (callNow) {
       await logEvent(tx, { outletId: locked.id, orderId: order.id, actorType: "SYSTEM", action: "AUTO_CALLED", from: "WAITING_PAYMENT", to: "CALLED" });
@@ -315,7 +352,7 @@ export async function cancelByGuest(guestId: string, orderId: string) {
     if (order.order_status === "CALLED") {
       throw new ApiError(409, "STATE_CHANGED", "Nomormu sedang dipanggil. Sampaikan langsung ke kasir kalau ingin membatalkan.");
     }
-    if (!["WAITING_PAYMENT", "DEFERRED"].includes(order.order_status) || order.payment_status !== "UNPAID") {
+    if (!["WAITING_PAYMENT", "DEFERRED", "DELIVERY_REQUESTED"].includes(order.order_status) || order.payment_status !== "UNPAID") {
       throw new ApiError(409, "STATE_CHANGED", "Pesanan ini sudah tidak bisa dibatalkan dari HP.", { order: await viewById(tx, orderId) });
     }
     await tx`

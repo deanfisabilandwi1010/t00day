@@ -24,6 +24,8 @@ await sql`update tooday.outlets set accepting_orders = true where id = ${outlet.
 await sql`update tooday.menu_items set available = true where outlet_id = ${outlet.id}`;
 await sql`update tooday.service_state set counter_ready = true, auto_call_next = true, feed_version = feed_version + 1 where outlet_id = ${outlet.id}`;
 
+// Jumlah menu aktif menurut server (menu bisa bertambah lewat Kelola menu).
+const menuCount = (await (await fetch(`${base}/api/menu?outlet=tooday-main`)).json()).items.length;
 const browser = await chromium.launch({ channel: "msedge" });
 const results = [];
 const check = (name, pass, extra = "") => {
@@ -52,7 +54,7 @@ await a.goto(`${base}/order?outlet=tooday-main&source=qr`);
 await a.locator(".qo-card").first().waitFor();
 check("menu QR tampil tanpa preloader", (await a.locator(".loader").count()) === 0 && Date.now() - started < 15000, `${Date.now() - started} ms`);
 check("sapaan pendek tampil", (await a.locator(".qo-hello-title").innerText()).includes("sudah siap pilih"));
-check("14 menu dimuat dari server", (await a.locator(".qo-card").count()) === 14);
+check("semua menu aktif dimuat dari server", (await a.locator(".qo-card").count()) === menuCount, `${menuCount} menu`);
 check("390px tanpa scroll horizontal (/order)", await noOverflow(a));
 await shot(a, "01-order-menu-390");
 
@@ -285,7 +287,7 @@ await r.locator("#qo-cart-title").waitFor();
 await r.keyboard.press("Escape");
 await r.waitForTimeout(400);
 check("keyboard: Escape menutup Pilihanku", !(await r.locator("dialog[open]").count()));
-check("reduced motion: informasi lengkap", (await r.locator(".qo-card").count()) === 14);
+check("reduced motion: informasi lengkap", (await r.locator(".qo-card").count()) === menuCount);
 
 // Kasir di tablet portrait dan HP: tidak ada konten yang terpotong di kanan.
 const clipped = () => k.evaluate(() => [...document.querySelectorAll(".kasir-body, .kasir-list, .kasir-detail, .kasir-controls")].some((el) => el.getBoundingClientRect().right > window.innerWidth + 1));
@@ -391,6 +393,77 @@ await afterArchive.locator(".qo-card").first().waitFor();
 check("kelola menu: section diarsipkan hilang dari /order", (await afterArchive.locator(".qo-section-title", { hasText: sectionName }).count()) === 0);
 await afterArchive.close();
 
+
+// QR Antar: manager menambah lokasi, kasir membuka QR Antar, pengunjung pesan dari QR lokasi,
+// kasir terima → buat → antar → terima pembayaran tunai. Pesanan antar tidak tampil di layar TV.
+const placeName = `Outlet Uji ${Date.now().toString().slice(-5)} – meja 2`;
+await m.goto(`${base}/kasir/qr?outlet=tooday-main`);
+await m.locator("#qr-location-name").waitFor();
+await m.locator("#qr-location-name").fill(placeName);
+await m.getByRole("button", { name: "Tambah lokasi" }).click();
+const placeRow = m.locator(".qr-location-list li", { hasText: placeName });
+await placeRow.waitFor();
+await placeRow.getByRole("button", { name: "Buat QR" }).click();
+await m.locator(".qr-card--antar .qr-table", { hasText: placeName }).waitFor();
+const antarUrl = (await m.locator(".qr-tools code").innerText()).trim();
+check("QR Antar: kartu lokasi memuat ?antar=", antarUrl.includes("antar=") && antarUrl.includes("source=qr-antar"), antarUrl);
+await shot(m, "29-qr-antar-card");
+
+await k.setViewportSize({ width: 1180, height: 820 });
+await k.goto(`${base}/kasir`);
+await k.locator(".kasir-stats").waitFor();
+const deliveryToggle = k.getByRole("switch", { name: /Pesanan antar/ });
+if ((await deliveryToggle.getAttribute("aria-checked")) !== "true") await deliveryToggle.click();
+await k.locator(".kasir-toggle.is-on", { hasText: "QR Antar dibuka" }).waitFor();
+
+const antarGuest = await browser.newContext(phone);
+const ag = await antarGuest.newPage();
+errorsOf(ag, errors);
+await ag.goto(antarUrl.replace(/^https?:\/\/[^/]+/, base));
+await ag.locator(".qo-card").first().waitFor();
+check("QR Antar: sapaan menyebut lokasi", (await ag.locator(".qo-hello-sub").innerText()).includes(placeName));
+await ag.getByRole("button", { name: "Tambah Matcha Latte" }).click();
+await ag.locator(".qo-sticky-btn").click();
+await ag.locator("#qo-cart-title").waitFor();
+check("QR Antar: pilihan antar & lokasi terisi otomatis", (await ag.getByRole("radio", { name: /QR Antar/ }).isChecked()) && (await ag.locator("#qo-location").inputValue()) !== "");
+await ag.getByRole("button", { name: "Kirim pesanan antar" }).click();
+check("QR Antar: nama panggilan wajib", (await ag.locator(".qo-submit-status [role=alert]").innerText()).includes("nama panggilan"));
+await ag.locator("#qo-nickname").fill("Bima");
+await ag.locator("#qo-delivery-detail").fill("kaos hijau");
+await ag.getByRole("radio", { name: "Tunai" }).check();
+await shot(ag, "30-order-antar-390");
+await ag.getByRole("button", { name: "Kirim pesanan antar" }).click();
+await ag.waitForURL(/\/pesanan\//);
+await ag.locator(".ticket-title", { hasText: "Pesanan antar terkirim" }).waitFor();
+const antarCode = (await ag.locator(".ticket-code").innerText()).trim();
+check("QR Antar: tiket menunggu diterima kasir", true, antarCode);
+
+await k.getByRole("tab", { name: /Antar/ }).click();
+await k.locator(".kasir-ticket", { hasText: antarCode }).click();
+check("kasir: slip antar memuat lokasi, nama, dan tagihan", (await k.locator(".kasir-slip").innerText()).includes(placeName) && (await k.locator(".kasir-slip").innerText()).includes("Bima"));
+await shot(k, "31-kasir-antar-slip-1180");
+await k.getByRole("button", { name: "Terima pesanan antar" }).click();
+await ag.locator(".ticket-title", { hasText: "Pesananmu diterima" }).waitFor({ timeout: 12000 });
+await k.getByRole("button", { name: "Mulai dibuat" }).click();
+await k.getByRole("button", { name: "Siap diantar" }).click();
+await k.getByRole("button", { name: "Antar sekarang" }).click();
+await ag.locator(".ticket-title", { hasText: "sedang diantar" }).waitFor({ timeout: 12000 });
+check("pengunjung: tiket 'sedang diantar' dengan tagihan", (await ag.locator(".ticket-text").first().innerText()).includes("tunai"));
+await shot(ag, "32-ticket-delivering-390", true);
+const antarFeed = await (await fetch(`${base}/api/antrean?outlet=tooday-main`)).text();
+check("layar publik: pesanan antar tidak tampil", !antarFeed.includes(antarCode));
+await k.getByRole("button", { name: /Pembayaran diterima/ }).click();
+await k.getByRole("radio", { name: "Tunai" }).check();
+await k.getByRole("button", { name: "Ya, pembayaran diterima" }).click();
+await ag.locator(".ticket-title", { hasText: "Selamat menikmati" }).waitFor({ timeout: 12000 });
+check("QR Antar: lunas saat diterima, tiket selesai", true);
+await antarGuest.close();
+
+// Rapikan: tutup QR Antar dan arsipkan lokasi uji agar putaran berikutnya bersih.
+await k.getByRole("switch", { name: /Pesanan antar/ }).click();
+await m.goto(`${base}/kasir/qr?outlet=tooday-main`);
+await m.locator(".qr-location-list li", { hasText: placeName }).getByRole("button", { name: `Arsipkan ${placeName}` }).click();
+await m.locator(".qr-location-list li", { hasText: placeName }).waitFor({ state: "detached" });
 
 // Kartu QR siap cetak (halaman staf)
 await k.goto(`${base}/kasir/qr?outlet=tooday-main`);

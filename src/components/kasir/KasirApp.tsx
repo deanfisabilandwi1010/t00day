@@ -8,7 +8,7 @@ import { Bell, BellOff, LogOut, Megaphone, MonitorPlay, QrCode, Search, Wifi, Wi
 import { brand } from "@/data/brand";
 import { formatPrice } from "@/lib/format";
 import { api, chime, formatTime, newKey, RequestError, useClock, useFeed } from "@/lib/order/client";
-import { STATUS_LABEL, type OrderEventView, type OrderStatus, type StaffAction, type StaffOrderView } from "@/lib/order/types";
+import { statusLabel, type OrderEventView, type OrderStatus, type StaffAction, type StaffOrderView } from "@/lib/order/types";
 import { Mascot } from "@/components/ui/Mascot";
 import { MenuManager } from "./MenuManager";
 import { SalesReport } from "./SalesReport";
@@ -17,7 +17,7 @@ import { Modal } from "@/components/ui/Modal";
 interface Snapshot {
   changed: true;
   feedVersion: number;
-  outlet: { slug: string; name: string; timezone: string; acceptingOrders: boolean; counterReady: boolean; autoCallNext: boolean; paymentMethods: string[] };
+  outlet: { slug: string; name: string; timezone: string; acceptingOrders: boolean; acceptingDelivery: boolean; counterReady: boolean; autoCallNext: boolean; paymentMethods: string[] };
   staff: { name: string; role: string };
   today: { date: string; paidTotal: number; paidCount: number; mineTotal: number; mineCount: number };
   orders: StaffOrderView[];
@@ -37,7 +37,7 @@ interface Detail {
   payment: { amount: number; method: string | null; receivedBy: string; receivedAt: string } | null;
 }
 
-type Tab = "bayar" | "dibuat" | "siap" | "riwayat" | "menu" | "laporan";
+type Tab = "bayar" | "dibuat" | "siap" | "antar" | "riwayat" | "menu" | "laporan";
 
 const EVENT_LABEL: Record<string, string> = {
   CREATED: "Order masuk",
@@ -51,6 +51,12 @@ const EVENT_LABEL: Record<string, string> = {
   READY: "Siap diambil",
   READY_RECALLED: "Panggil ulang pengambilan",
   COMPLETED: "Diserahkan",
+  DELIVERY_REQUESTED: "Pesanan antar masuk",
+  DELIVERY_ACCEPTED: "Pesanan antar diterima",
+  DELIVERY_REJECTED: "Pesanan antar ditolak",
+  DELIVERING: "Diantar",
+  DELIVERY_PAID: "Dibayar saat diterima",
+  UNDELIVERED: "Gagal diantar",
   CANCELLED: "Dibatalkan",
   EXPIRED: "Kedaluwarsa",
 };
@@ -97,7 +103,7 @@ export function KasirApp() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [notice, setNotice] = useState<{ tone: "info" | "warn"; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [modal, setModal] = useState<null | { kind: "pay" | "defer" | "cancel"; order: StaffOrderView }>(null);
+  const [modal, setModal] = useState<null | { kind: "pay" | "deliverypay" | ReasonKind; order: StaffOrderView }>(null);
   const [reconcile, setReconcile] = useState<StaffOrderView | null>(null);
   const keys = useRef(new Map<string, string>());
 
@@ -113,7 +119,7 @@ export function KasirApp() {
       seen.current = new Set(ids);
       return;
     }
-    const added = snap.orders.filter((order) => !seen.current!.has(order.id) && order.payment === "UNPAID").map((order) => order.code);
+    const added = snap.orders.filter((order) => !seen.current!.has(order.id) && order.payment === "UNPAID").map((order) => (order.fulfillment === "DELIVERY" ? `${order.code} (antar)` : order.code));
     ids.forEach((id) => seen.current!.add(id));
     if (added.length > 0) {
       setFresh((current) => [...current, ...added].slice(-6));
@@ -128,11 +134,19 @@ export function KasirApp() {
       called: of("CALLED"),
       waiting: of("WAITING_PAYMENT").sort(byTime("queueEnteredAt")),
       deferred: of("DEFERRED").sort(byTime("queueEnteredAt")),
-      production: of("QUEUED", "PREPARING").sort(byTime("paidAt")),
-      ready: of("READY").sort(byTime("readyAt")),
+      // Antrean dibuat: pesanan counter (urut waktu bayar) dan pesanan antar (urut waktu diterima).
+      production: of("QUEUED", "PREPARING").sort(
+        (a, b) => (a.paidAt ?? a.acceptedAt ?? "").localeCompare(b.paidAt ?? b.acceptedAt ?? "") || a.queueNumber - b.queueNumber,
+      ),
+      ready: of("READY").filter((order) => order.fulfillment === "COUNTER").sort(byTime("readyAt")),
+      deliveryRequested: of("DELIVERY_REQUESTED").sort(byTime("createdAt")),
+      deliveryCooking: of("QUEUED", "PREPARING").filter((order) => order.fulfillment === "DELIVERY").sort(byTime("acceptedAt")),
+      deliveryReady: of("READY").filter((order) => order.fulfillment === "DELIVERY").sort(byTime("readyAt")),
+      delivering: of("DELIVERING").sort(byTime("deliveringAt")),
     };
   }, [orders]);
   const unpaidCount = groups.called.length + groups.waiting.length + groups.deferred.length;
+  const deliveryCount = groups.deliveryRequested.length + groups.deliveryCooking.length + groups.deliveryReady.length + groups.delivering.length;
 
   const selected = orders.find((order) => order.id === selectedId) ?? (detail?.order.id === selectedId ? detail.order : null);
 
@@ -203,7 +217,7 @@ export function KasirApp() {
     }
   }
 
-  async function updateSettings(patch: { acceptingOrders?: boolean; counterReady?: boolean; autoCallNext?: boolean }) {
+  async function updateSettings(patch: { acceptingOrders?: boolean; acceptingDelivery?: boolean; counterReady?: boolean; autoCallNext?: boolean }) {
     if (!outlet) return;
     setBusy("settings");
     try {
@@ -335,6 +349,14 @@ export function KasirApp() {
             disabled={busy === "settings" || !online}
             onChange={(value) => updateSettings({ autoCallNext: value })}
           />
+          <Toggle
+            label="Pesanan antar"
+            on={snap.outlet.acceptingDelivery}
+            onLabel="QR Antar dibuka"
+            offLabel="QR Antar ditutup"
+            disabled={busy === "settings" || !online}
+            onChange={(value) => updateSettings({ acceptingDelivery: value })}
+          />
           <div className="kasir-controls-links">
             <button type="button" className="kasir-chip" onClick={toggleSound} aria-pressed={sound}>
               {sound ? <Bell aria-hidden="true" size={16} /> : <BellOff aria-hidden="true" size={16} />}
@@ -419,6 +441,7 @@ export function KasirApp() {
                 ["bayar", "Kasir", unpaidCount],
                 ["dibuat", "Dibuat", groups.production.length],
                 ["siap", "Siap", groups.ready.length],
+                ["antar", "Antar", deliveryCount],
                 ["riwayat", "Riwayat", null],
                 ["menu", "Menu", null],
                 ...(isManager ? ([["laporan", "Laporan", null]] as const) : []),
@@ -465,8 +488,20 @@ export function KasirApp() {
           )}
           {snap && tab === "dibuat" && (
             <>
-              <OrderGroup title="Antrean dibuat (urut waktu bayar)" orders={groups.production.filter(matches)} selectedId={selectedId} onSelect={setSelectedId} />
+              <OrderGroup title="Antrean dibuat (urut waktu bayar / diterima)" orders={groups.production.filter(matches)} selectedId={selectedId} onSelect={setSelectedId} />
               {groups.production.length === 0 && <EmptyState text="Belum ada pesanan yang perlu dibuat." />}
+            </>
+          )}
+          {snap && tab === "antar" && (
+            <>
+              {!snap.outlet.acceptingDelivery && deliveryCount === 0 && (
+                <p className="kasir-notice kasir-notice--info">QR Antar sedang ditutup. Nyalakan saklar &ldquo;Pesanan antar&rdquo; di atas untuk menerima pesanan antar.</p>
+              )}
+              <OrderGroup title="Menunggu diterima" orders={groups.deliveryRequested.filter(matches)} selectedId={selectedId} onSelect={setSelectedId} />
+              <OrderGroup title="Diterima / sedang dibuat" orders={groups.deliveryCooking.filter(matches)} selectedId={selectedId} onSelect={setSelectedId} />
+              <OrderGroup title="Siap diantar" orders={groups.deliveryReady.filter(matches)} selectedId={selectedId} onSelect={setSelectedId} />
+              <OrderGroup title="Sedang diantar · tagih saat diterima" orders={groups.delivering.filter(matches)} selectedId={selectedId} onSelect={setSelectedId} />
+              {deliveryCount === 0 && snap.outlet.acceptingDelivery && <EmptyState text="Belum ada pesanan antar. Pesanan QR Antar baru muncul di sini." />}
             </>
           )}
           {snap && tab === "siap" && (
@@ -494,6 +529,9 @@ export function KasirApp() {
                 if (action === "confirm-payment") setModal({ kind: "pay", order: selected });
                 else if (action === "defer") setModal({ kind: "defer", order: selected });
                 else if (action === "cancel") setModal({ kind: "cancel", order: selected });
+                else if (action === "confirm-delivery") setModal({ kind: "deliverypay", order: selected });
+                else if (action === "reject") setModal({ kind: "reject", order: selected });
+                else if (action === "undelivered") setModal({ kind: "undelivered", order: selected });
                 else void run(selected, action);
               }}
             />
@@ -522,14 +560,28 @@ export function KasirApp() {
           />
         )}
       </Modal>
-      <Modal open={modal?.kind === "defer" || modal?.kind === "cancel"} onClose={() => setModal(null)} labelledBy="reason-title">
-        {modal && modal.kind !== "pay" && (
+      <Modal open={modal?.kind === "deliverypay"} onClose={() => setModal(null)} labelledBy="deliverypay-title">
+        {modal?.kind === "deliverypay" && (
+          <DeliveryPayDialog
+            order={modal.order}
+            online={online}
+            busy={busy !== null}
+            onConfirm={async (method) => {
+              await run(modal.order, "confirm-delivery", { method });
+              setModal(null);
+            }}
+            onCancel={() => setModal(null)}
+          />
+        )}
+      </Modal>
+      <Modal open={modal !== null && modal.kind !== "pay" && modal.kind !== "deliverypay"} onClose={() => setModal(null)} labelledBy="reason-title">
+        {modal && modal.kind !== "pay" && modal.kind !== "deliverypay" && (
           <ReasonDialog
             kind={modal.kind}
             order={modal.order}
             busy={busy !== null}
             onConfirm={async (reason) => {
-              if (await run(modal.order, modal.kind === "defer" ? "defer" : "cancel", { reason })) setModal(null);
+              if (await run(modal.order, modal.kind as ReasonKind, { reason })) setModal(null);
             }}
             onCancel={() => setModal(null)}
           />
@@ -585,11 +637,17 @@ function OrderGroup({ title, orders, selectedId, onSelect, numbered }: { title: 
               <span className="kasir-ticket-code tabular">{order.code}</span>
               <span className="kasir-ticket-info">
                 <span className="kasir-ticket-status">
-                  {order.payment === "UNPAID" && <strong className="kasir-unpaid">BELUM DIBAYAR</strong>} {STATUS_LABEL[order.status]}
+                  {order.fulfillment === "DELIVERY" ? (
+                    <strong className="kasir-antar">ANTAR</strong>
+                  ) : (
+                    order.payment === "UNPAID" && <strong className="kasir-unpaid">BELUM DIBAYAR</strong>
+                  )}{" "}
+                  {statusLabel(order.status, order.fulfillment)}
                   {numbered ? ` · urutan ${index + 1}` : ""}
                 </span>
                 <span className="kasir-ticket-sub">
-                  {order.items.reduce((sum, item) => sum + item.quantity, 0)} item · {order.orderType === "DINE_IN" ? "Dine-in" : "Takeaway"}
+                  {order.items.reduce((sum, item) => sum + item.quantity, 0)} item ·{" "}
+                  {order.delivery ? `ke ${order.delivery.location}` : order.orderType === "DINE_IN" ? "Dine-in" : "Takeaway"}
                   {order.table ? ` · Meja ${order.table}` : ""}
                   {order.nickname ? ` · ${order.nickname}` : ""}
                 </span>
@@ -626,8 +684,30 @@ const ACTIONS: Partial<Record<OrderStatus, { action: StaffAction; label: string;
   ],
 };
 
+const DELIVERY_ACTIONS: Partial<Record<OrderStatus, { action: StaffAction; label: string; tone: "red" | "olive" | "outline" | "ghost" }[]>> = {
+  DELIVERY_REQUESTED: [
+    { action: "accept", label: "Terima pesanan antar", tone: "red" },
+    { action: "reject", label: "Tolak", tone: "ghost" },
+  ],
+  QUEUED: [
+    { action: "start", label: "Mulai dibuat", tone: "olive" },
+    { action: "cancel", label: "Batalkan", tone: "ghost" },
+  ],
+  PREPARING: [{ action: "ready", label: "Siap diantar", tone: "red" }],
+  READY: [
+    { action: "deliver", label: "Antar sekarang", tone: "olive" },
+    { action: "confirm-delivery", label: "Pembayaran diterima", tone: "red" },
+    { action: "undelivered", label: "Gagal diantar", tone: "ghost" },
+  ],
+  DELIVERING: [
+    { action: "confirm-delivery", label: "Pembayaran diterima · serahkan", tone: "red" },
+    { action: "undelivered", label: "Gagal diantar", tone: "ghost" },
+  ],
+};
+
 function OrderDetail({ order, detail, busy, online, onAction }: { order: StaffOrderView; detail: Detail | null; busy: string | null; online: boolean; onAction: (action: StaffAction) => void }) {
-  const actions = ACTIONS[order.status] ?? [];
+  const isDelivery = order.fulfillment === "DELIVERY";
+  const actions = (isDelivery ? DELIVERY_ACTIONS : ACTIONS)[order.status] ?? [];
   return (
     <article className="kasir-card" aria-labelledby="kasir-detail-code">
       <div className="kasir-card-head">
@@ -635,19 +715,33 @@ function OrderDetail({ order, detail, busy, online, onAction }: { order: StaffOr
           {order.code}
         </p>
         <div>
-          {order.payment === "UNPAID" && order.status !== "CANCELLED" && order.status !== "EXPIRED" ? (
-            <p className="kasir-badge kasir-badge--red">BELUM DIBAYAR</p>
+          {order.payment === "UNPAID" && !["CANCELLED", "EXPIRED", "UNDELIVERED"].includes(order.status) ? (
+            <p className="kasir-badge kasir-badge--red">{isDelivery ? "BAYAR SAAT DITERIMA" : "BELUM DIBAYAR"}</p>
           ) : order.payment === "PAID" ? (
             <p className="kasir-badge kasir-badge--olive">LUNAS</p>
           ) : null}
-          <p className="kasir-card-status">{STATUS_LABEL[order.status]}</p>
+          <p className="kasir-card-status">{statusLabel(order.status, order.fulfillment)}</p>
         </div>
       </div>
       <p className="kasir-card-meta">
-        Masuk {formatTime(order.createdAt)} · {order.orderType === "DINE_IN" ? "Dine-in" : "Takeaway"}
+        Masuk {formatTime(order.createdAt)} · {isDelivery ? "QR Antar" : order.orderType === "DINE_IN" ? "Dine-in" : "Takeaway"}
         {order.table ? ` · Meja ${order.table}` : ""}
         {order.nickname ? ` · ${order.nickname}` : ""}
       </p>
+      {order.delivery && (
+        <div className="kasir-slip" aria-label="Slip antar">
+          <p className="kasir-slip-label">Antar ke</p>
+          <p className="kasir-slip-place">{order.delivery.location}</p>
+          <p className="kasir-slip-meta">
+            {order.nickname ? <strong>{order.nickname}</strong> : null}
+            {order.delivery.detail ? ` · ${order.delivery.detail}` : ""}
+          </p>
+          <p className="kasir-slip-pay">
+            Tagih <strong className="tabular">{formatPrice(order.total)}</strong>
+            {order.delivery.payHint ? ` · pelanggan mau bayar ${order.delivery.payHint === "QRIS" ? "QRIS" : "tunai"}` : ""}
+          </p>
+        </div>
+      )}
       {order.deferReason && order.status === "DEFERRED" && <p className="kasir-card-meta">Alasan dilewati: {order.deferReason}</p>}
       {order.closeReason && <p className="kasir-card-meta">Keterangan: {order.closeReason}</p>}
 
@@ -677,12 +771,12 @@ function OrderDetail({ order, detail, busy, online, onAction }: { order: StaffOr
       {actions.length > 0 && (
         <div className="kasir-actions">
           {actions.map(({ action, label, tone }) => {
-            const needsServer = action === "confirm-payment";
+            const needsServer = action === "confirm-payment" || action === "confirm-delivery";
             return (
               <button
                 key={action}
                 type="button"
-                className={`qo-btn qo-btn--${tone} ${action === "confirm-payment" ? "qo-btn--block" : ""}`}
+                className={`qo-btn qo-btn--${tone} ${action === "confirm-payment" || action === "accept" ? "qo-btn--block" : ""}`}
                 disabled={busy !== null || (needsServer && !online)}
                 onClick={() => onAction(action)}
               >
@@ -751,8 +845,79 @@ function PayDialog({ order, methods, online, busy, onConfirm, onCancel }: { orde
   );
 }
 
-function ReasonDialog({ kind, order, busy, onConfirm, onCancel }: { kind: "defer" | "cancel"; order: StaffOrderView; busy: boolean; onConfirm: (reason: string) => void; onCancel: () => void }) {
-  const presets = kind === "defer" ? ["Belum datang ke kasir", "Pelanggan minta waktu"] : ["Pelanggan membatalkan", "Menu tidak bisa dipenuhi", "Pesanan dobel"];
+type ReasonKind = "defer" | "cancel" | "reject" | "undelivered";
+
+const REASON_COPY: Record<ReasonKind, { eyebrow: string; title: (code: string) => string; text: string; presets: string[]; submit: string }> = {
+  defer: {
+    eyebrow: "Lewati sementara",
+    title: (code) => `Lewati ${code} sementara?`,
+    text: "Slot kasir dilepas dan nomor berikutnya dipanggil. Pelanggan diminta memberi tahu kasir saat siap.",
+    presets: ["Belum datang ke kasir", "Pelanggan minta waktu"],
+    submit: "Lewati",
+  },
+  cancel: {
+    eyebrow: "Batalkan pesanan",
+    title: (code) => `Batalkan ${code}?`,
+    text: "Hanya untuk pesanan yang belum dibayar. Riwayat tetap tersimpan dan nomor tidak dipakai ulang.",
+    presets: ["Pelanggan membatalkan", "Menu tidak bisa dipenuhi", "Pesanan dobel"],
+    submit: "Batalkan pesanan",
+  },
+  reject: {
+    eyebrow: "Tolak pesanan antar",
+    title: (code) => `Tolak pesanan antar ${code}?`,
+    text: "Pelanggan melihat alasan ini di HP-nya. Pesanan tidak dibuat dan tidak perlu dibayar.",
+    presets: ["Sedang ramai, ambil di counter ya", "Menu tidak bisa dipenuhi", "Lokasi di luar area antar"],
+    submit: "Tolak pesanan",
+  },
+  undelivered: {
+    eyebrow: "Gagal diantar",
+    title: (code) => `${code} gagal diserahkan?`,
+    text: "Dicatat sebagai pesanan antar tidak terbayar di laporan. Pakai hanya bila pesanan memang tidak bisa diserahkan atau dibayar.",
+    presets: ["Pemesan tidak ada di lokasi", "Pemesan menolak membayar", "Pemesan membatalkan saat diantar"],
+    submit: "Catat gagal diantar",
+  },
+};
+
+function DeliveryPayDialog({ order, online, busy, onConfirm, onCancel }: { order: StaffOrderView; online: boolean; busy: boolean; onConfirm: (method: "QRIS" | "TUNAI") => void; onCancel: () => void }) {
+  const [method, setMethod] = useState<"QRIS" | "TUNAI">(order.delivery?.payHint ?? "QRIS");
+  return (
+    <div className="kasir-dialog">
+      <p className="eyebrow">Bayar saat diterima · {order.delivery?.location}</p>
+      <h2 id="deliverypay-title" className="kasir-dialog-title">
+        Pembayaran <span className="tabular">{formatPrice(order.total)}</span> untuk {order.code} sudah diterima?
+      </h2>
+      <fieldset className="qo-field">
+        <legend>Dibayar dengan</legend>
+        <div className="qo-segment">
+          {(["QRIS", "TUNAI"] as const).map((value) => (
+            <label key={value} className={method === value ? "is-on" : ""}>
+              <input type="radio" name="delivery-pay" value={value} checked={method === value} onChange={() => setMethod(value)} />
+              {value === "QRIS" ? "QRIS" : "Tunai"}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <p className="kasir-muted kasir-small">
+        {method === "QRIS"
+          ? "Cek dulu notifikasi dana masuk di aplikasi merchant QRIS dengan nominal yang sama."
+          : "Pastikan uang tunai sudah diterima sesuai total."}{" "}
+        Pesanan langsung tercatat lunas dan selesai.
+      </p>
+      <div className="kasir-row">
+        <button type="button" className="qo-btn qo-btn--red" disabled={!online || busy} onClick={() => onConfirm(method)}>
+          {busy ? "Menyimpan…" : "Ya, pembayaran diterima"}
+        </button>
+        <button type="button" className="qo-btn qo-btn--outline" onClick={onCancel}>
+          Batal
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ReasonDialog({ kind, order, busy, onConfirm, onCancel }: { kind: ReasonKind; order: StaffOrderView; busy: boolean; onConfirm: (reason: string) => void; onCancel: () => void }) {
+  const copy = REASON_COPY[kind];
+  const presets = copy.presets;
   const [reason, setReason] = useState("");
   return (
     <form
@@ -762,14 +927,12 @@ function ReasonDialog({ kind, order, busy, onConfirm, onCancel }: { kind: "defer
         if (reason.trim()) onConfirm(reason.trim());
       }}
     >
-      <p className="eyebrow">{kind === "defer" ? "Lewati sementara" : "Batalkan pesanan"}</p>
+      <p className="eyebrow">{copy.eyebrow}</p>
       <h2 id="reason-title" className="kasir-dialog-title">
-        {kind === "defer" ? `Lewati ${order.code} sementara?` : `Batalkan ${order.code}?`}
+        {copy.title(order.code)}
       </h2>
       <p className="kasir-muted">
-        {kind === "defer"
-          ? "Slot kasir dilepas dan nomor berikutnya dipanggil. Pelanggan diminta memberi tahu kasir saat siap."
-          : "Hanya untuk pesanan yang belum dibayar. Riwayat tetap tersimpan dan nomor tidak dipakai ulang."}
+        {copy.text}
       </p>
       <div className="kasir-presets">
         {presets.map((preset) => (
@@ -783,8 +946,8 @@ function ReasonDialog({ kind, order, busy, onConfirm, onCancel }: { kind: "defer
         <input id="reason-input" value={reason} maxLength={200} onChange={(event) => setReason(event.target.value)} required />
       </div>
       <div className="kasir-row">
-        <button type="submit" className={`qo-btn ${kind === "cancel" ? "qo-btn--red" : "qo-btn--olive"}`} disabled={busy || !reason.trim()}>
-          {busy ? "Menyimpan…" : kind === "defer" ? "Lewati" : "Batalkan pesanan"}
+        <button type="submit" className={`qo-btn ${kind === "defer" ? "qo-btn--olive" : "qo-btn--red"}`} disabled={busy || !reason.trim()}>
+          {busy ? "Menyimpan…" : copy.submit}
         </button>
         <button type="button" className="qo-btn qo-btn--outline" onClick={onCancel}>
           Kembali

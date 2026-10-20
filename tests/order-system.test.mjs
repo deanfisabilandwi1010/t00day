@@ -510,7 +510,7 @@ describe("pencatatan dan laporan transaksi", () => {
 
     const daily = await manager.get(`/api/kasir/report?outlet=${fx.slug}&from=${today}&to=${today}`);
     assert.equal(daily.status, 200);
-    assert.deepEqual(daily.data.summary, { revenue: 86000, transactions: 2, avgTicket: 43000, itemsSold: 4, cancelled: 1, expired: 0 });
+    assert.deepEqual(daily.data.summary, { revenue: 86000, transactions: 2, avgTicket: 43000, itemsSold: 4, cancelled: 1, expired: 0, undelivered: 0, undeliveredAmount: 0 });
     assert.deepEqual(
       daily.data.byItem.map((row) => [row.sku, row.quantity, row.revenue]),
       [["kopi-a", 3, 66000], ["teok-c", 1, 20000]],
@@ -657,6 +657,127 @@ describe("unggah foto menu", () => {
     const foreign = await otherManager.post("/api/kasir/menu-admin", { outlet: other.slug, op: "update-item", sku: "kopi-a", image: ok.data.url });
     assert.equal(foreign.status, 400);
     assert.equal((await fetch(BASE + "/api/menu-images/00000000-0000-4000-8000-000000000000")).status, 404);
+  });
+});
+
+describe("QR Antar (antar ke lokasi, bayar saat diterima)", () => {
+  async function setupDelivery() {
+    const fx = await createFixture();
+    const manager = await loginAs(fx.manager.email);
+    const kasir = await loginAs(fx.staff[0].email);
+    const created = await manager.post("/api/kasir/delivery-locations", { outlet: fx.slug, op: "create-location", name: "Outlet Bakso – meja 3" });
+    assert.equal(created.status, 200);
+    const location = created.data.locations[0];
+    assert.equal(location.code, "outlet-bakso-meja-3");
+    await kasir.patch("/api/kasir/settings", { outlet: fx.slug, acceptingDelivery: true });
+    return { fx, manager, kasir, location };
+  }
+  const deliveryOrder = (slug, code, extra = {}) =>
+    orderPayload(slug, [{ sku: "kopi-a", quantity: 2 }], { fulfillment: "DELIVERY", nickname: "Rina", delivery: { location: code, detail: "baju merah", payHint: "QRIS" }, ...extra });
+  const todayJakarta = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+
+  test("lokasi hanya dikelola manager; QR lokasi mengisi lokasi otomatis", async () => {
+    const { fx, kasir, location } = await setupDelivery();
+    assert.equal((await kasir.post("/api/kasir/delivery-locations", { outlet: fx.slug, op: "create-location", name: "Coba" })).status, 403);
+    assert.equal((await kasir.get(`/api/kasir/delivery-locations?outlet=${fx.slug}`)).data.locations.length, 1);
+    const menu = (await new Client().get(`/api/menu?outlet=${fx.slug}&antar=${location.code}`)).data;
+    assert.equal(menu.outlet.acceptingDelivery, true);
+    assert.equal(menu.outlet.presetLocation, location.code);
+    assert.deepEqual(menu.outlet.deliveryLocations, [{ code: location.code, name: "Outlet Bakso – meja 3" }]);
+  });
+
+  test("pesanan antar menunggu diterima, tidak masuk antrean bayar maupun layar publik", async () => {
+    const { fx, location } = await setupDelivery();
+    const guest = new Client();
+    const noName = await guest.post("/api/orders", deliveryOrder(fx.slug, location.code, { nickname: undefined }));
+    assert.equal(noName.status, 400);
+    const badLoc = await guest.post("/api/orders", deliveryOrder(fx.slug, "tidak-ada"));
+    assert.equal(badLoc.status, 400);
+    const res = await guest.post("/api/orders", deliveryOrder(fx.slug, location.code));
+    assert.equal(res.status, 201);
+    assert.equal(res.data.order.status, "DELIVERY_REQUESTED");
+    assert.equal(res.data.order.fulfillment, "DELIVERY");
+    assert.deepEqual(res.data.order.delivery, { location: "Outlet Bakso – meja 3", detail: "baju merah", payHint: "QRIS" });
+    // Pesanan counter berikutnya tetap langsung dipanggil (pesanan antar tidak memblokir kasir).
+    const counter = await submit(new Client(), fx.slug);
+    assert.equal(counter.data.order.status, "CALLED");
+    const feed = (await new Client().get(`/api/antrean?outlet=${fx.slug}`)).data;
+    assert.ok(!JSON.stringify(feed).includes(res.data.order.code), "pesanan antar tidak tampil di layar publik");
+  });
+
+  test("QR Antar ditutup: pesanan antar ditolak, pesanan counter tetap jalan", async () => {
+    const { fx, kasir, location } = await setupDelivery();
+    await kasir.patch("/api/kasir/settings", { outlet: fx.slug, acceptingDelivery: false });
+    const closed = await new Client().post("/api/orders", deliveryOrder(fx.slug, location.code));
+    assert.equal(closed.data.error.code, "ORDERS_CLOSED");
+    assert.equal((await submit(new Client(), fx.slug)).status, 201);
+  });
+
+  test("siklus lengkap: terima, dibuat, antar, bayar QRIS saat diterima", async () => {
+    const { fx, kasir, location } = await setupDelivery();
+    const guest = new Client();
+    let order = (await guest.post("/api/orders", deliveryOrder(fx.slug, location.code))).data.order;
+    assert.equal((await staffAction(kasir, fx.slug, order, "confirm-payment")).status, 409, "aksi kasir counter tidak berlaku");
+    for (const [action, expected] of [["accept", "QUEUED"], ["start", "PREPARING"], ["ready", "READY"], ["deliver", "DELIVERING"]]) {
+      const result = await staffAction(kasir, fx.slug, order, action);
+      assert.equal(result.status, 200, `${action}: ${JSON.stringify(result.data)}`);
+      order = result.data.order;
+      assert.equal(order.status, expected);
+      assert.equal(order.payment, "UNPAID", "belum dibayar sampai diserahkan");
+      assert.equal((await guest.get(`/api/orders/${order.id}`)).data.order.status, expected);
+    }
+    assert.equal((await staffAction(kasir, fx.slug, order, "confirm-delivery")).status, 400, "metode wajib dipilih");
+    const paid = await staffAction(kasir, fx.slug, order, "confirm-delivery", { method: "QRIS" });
+    assert.equal(paid.status, 200);
+    assert.equal(paid.data.order.status, "COMPLETED");
+    assert.equal(paid.data.order.payment, "PAID");
+    const [payment] = await sql`select amount_rupiah, method from tooday.payment_records where order_id = ${order.id}`;
+    assert.deepEqual({ ...payment }, { amount_rupiah: 44000, method: "QRIS" });
+
+    const manager = await loginAs(fx.manager.email);
+    const today = todayJakarta();
+    const report = (await manager.get(`/api/kasir/report?outlet=${fx.slug}&from=${today}&to=${today}`)).data;
+    assert.deepEqual(report.byChannel, [{ channel: "QR Antar", transactions: 1, revenue: 44000 }]);
+  });
+
+  test("tunai langsung dari siap diantar, tolak dengan alasan, dan gagal diantar tercatat", async () => {
+    const { fx, kasir, location } = await setupDelivery();
+    let a = (await new Client().post("/api/orders", deliveryOrder(fx.slug, location.code))).data.order;
+    for (const action of ["accept", "start", "ready"]) a = (await staffAction(kasir, fx.slug, a, action)).data.order;
+    const cash = await staffAction(kasir, fx.slug, a, "confirm-delivery", { method: "TUNAI" });
+    assert.equal(cash.data.order.status, "COMPLETED");
+
+    const guestB = new Client();
+    const b = (await guestB.post("/api/orders", deliveryOrder(fx.slug, location.code))).data.order;
+    assert.equal((await staffAction(kasir, fx.slug, b, "reject")).status, 400);
+    assert.equal((await staffAction(kasir, fx.slug, b, "reject", { reason: "Sedang ramai" })).status, 200);
+    const seen = (await guestB.get(`/api/orders/${b.id}`)).data.order;
+    assert.equal(seen.status, "CANCELLED");
+    assert.equal(seen.closeReason, "Sedang ramai");
+
+    let c = (await new Client().post("/api/orders", deliveryOrder(fx.slug, location.code))).data.order;
+    for (const action of ["accept", "start", "ready", "deliver"]) c = (await staffAction(kasir, fx.slug, c, action)).data.order;
+    assert.equal((await staffAction(kasir, fx.slug, c, "undelivered", { reason: "Pemesan tidak ada di lokasi" })).status, 200);
+    const manager = await loginAs(fx.manager.email);
+    const today = todayJakarta();
+    const report = (await manager.get(`/api/kasir/report?outlet=${fx.slug}&from=${today}&to=${today}`)).data;
+    assert.equal(report.summary.undelivered, 1);
+    assert.equal(report.summary.undeliveredAmount, 44000);
+    assert.equal(report.summary.revenue, 44000, "hanya pesanan yang dibayar dihitung pendapatan");
+  });
+
+  test("pelanggan bisa batal sebelum diterima, tidak setelahnya; database menolak status tidak sah", async () => {
+    const { fx, kasir, location } = await setupDelivery();
+    const guest = new Client();
+    const a = (await guest.post("/api/orders", deliveryOrder(fx.slug, location.code))).data.order;
+    assert.equal((await guest.post(`/api/orders/${a.id}/cancel`, {})).status, 200);
+    const b = (await guest.post("/api/orders", deliveryOrder(fx.slug, location.code))).data.order;
+    await staffAction(kasir, fx.slug, b, "accept");
+    assert.equal((await guest.post(`/api/orders/${b.id}/cancel`, {})).status, 409);
+    await assert.rejects(
+      sql`update tooday.orders set payment_status = 'PAID', paid_at = now(), order_status = 'PREPARING' where id = ${b.id}`,
+      /orders_status_combo/,
+    );
   });
 });
 

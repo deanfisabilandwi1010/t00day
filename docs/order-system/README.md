@@ -68,6 +68,26 @@ tests/order-system.test.mjs     integration test lewat HTTP + Postgres
 
 PAID berarti **kasir mencatat bahwa pembayaran fisik sudah diterima**. Tidak ada gateway, tidak ada verifikasi bank, dan pengunjung tidak punya aksi "sudah bayar".
 
+## QR Antar (pesanan diantar, bayar saat diterima)
+
+Jalur kedua di samping pesanan counter, untuk pengunjung yang duduk di tempat lain di area Tooday. Kolom `orders.fulfillment` = `DELIVERY`; aturan status dan pembayarannya dipisah dan dikunci constraint `orders_status_combo`.
+
+| order_status | payment_status | Arti | Aksi berikut yang sah |
+|---|---|---|---|
+| DELIVERY_REQUESTED | UNPAID | Menunggu diterima kasir | QUEUED (`accept`), CANCELLED (`reject` dengan alasan, atau dibatalkan pelanggan), EXPIRED |
+| QUEUED | UNPAID | Diterima, menunggu dibuat | PREPARING (`start`), CANCELLED (`cancel`) |
+| PREPARING | UNPAID | Sedang dibuat | READY |
+| READY | UNPAID | Siap diantar | DELIVERING (`deliver`), COMPLETED (`confirm-delivery`), UNDELIVERED |
+| DELIVERING | UNPAID | Sedang diantar | COMPLETED + PAID (`confirm-delivery`, metode QRIS/TUNAI wajib), UNDELIVERED (alasan wajib) |
+| COMPLETED | PAID | Dibayar dan diserahkan | Terminal |
+| UNDELIVERED | UNPAID | Gagal diantar/tidak dibayar | Terminal, tampil di laporan sebagai nominal tidak terbayar |
+
+- Pengunjung memilih **QR Antar** di Pilihanku (hanya tampil bila saklar **Pesanan antar** di kasir menyala dan ada lokasi aktif), memilih lokasi dari daftar, mengisi nama panggilan (wajib), petunjuk opsional, dan rencana bayar QRIS/tunai.
+- **Lokasi antar** (`delivery_locations`) dikelola manager di `/kasir/qr`. Tiap lokasi punya kode; QR lokasi `…/order?outlet=…&antar=<kode>&source=qr-antar` langsung memilih QR Antar dan lokasinya. Ganti nama tidak mengubah kode, jadi QR cetak tetap berlaku.
+- Pesanan antar **tidak masuk antrean bayar kasir**, tidak memblokir pemanggilan counter, dan **tidak tampil di layar antrean publik** (view `queue_public` hanya `COUNTER`). Di kasir ada tab **Antar**; pesanan antar yang sedang dibuat juga muncul di tab **Dibuat** (urut waktu diterima).
+- Pembayaran dicatat saat diserahkan (`payment_records.method` = `QRIS` atau `TUNAI`, nominal dari pesanan). Laporan memisahkan pendapatan **Kasir** dan **QR Antar**, serta jumlah dan nominal pesanan antar yang gagal dibayar (tidak dihitung pendapatan).
+- Permintaan antar yang tidak diterima kasir kedaluwarsa setelah `unpaid_ttl_minutes` (default 120 menit).
+
 ## Aturan antrean (semua di server, dalam transaksi)
 
 Setiap mutasi yang memengaruhi antrean memanggil `withOutletLock()`, yang mengunci baris `service_state` outlet (`SELECT … FOR UPDATE`). Akibatnya semua keputusan antrean satu outlet berjalan berurutan.
@@ -119,7 +139,9 @@ Semua respons `Cache-Control: no-store`. Semua POST/PATCH wajib `Content-Type: a
 | `GET /api/kasir/orders/[id]?outlet=` | Staf outlet | Rincian + riwayat tindakan + catatan pembayaran |
 | `POST /api/kasir/orders/[id]/action` | Staf outlet | `action`: confirm-payment, recall, defer*, requeue, cancel*, start, ready, recall-ready, complete. Wajib `expectedVersion`, `idempotencyKey`; *wajib `reason` |
 | `POST /api/kasir/call-next` | Staf outlet | Panggil WAITING_PAYMENT terlama bila tidak ada yang sedang dipanggil |
-| `PATCH /api/kasir/settings` | Staf outlet | `acceptingOrders`, `counterReady`, `autoCallNext` |
+| `PATCH /api/kasir/settings` | Staf outlet | `acceptingOrders`, `acceptingDelivery`, `counterReady`, `autoCallNext` |
+| `GET /api/kasir/delivery-locations?outlet=` | Staf outlet | Lokasi QR Antar (termasuk diarsipkan) |
+| `POST /api/kasir/delivery-locations` | **Manager** | `op`: `create-location`, `update-location` (nama, `active`, urutan `move`) |
 | `PATCH /api/kasir/menu/[sku]` | Staf outlet | `available` (tersedia/habis) |
 | `GET /api/kasir/menu-admin?outlet=` | **Manager** | Semua section dan menu, termasuk yang diarsipkan |
 | `POST /api/kasir/menu-admin` | **Manager** | `op`: `create-section`, `update-section` (nama, urutan `move`, `active`), `create-item`, `update-item` (nama, deskripsi, harga, foto dari daftar tetap, section, urutan, tampil/arsip, tersedia). Tidak ada hapus permanen |

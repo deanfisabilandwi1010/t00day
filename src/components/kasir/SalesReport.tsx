@@ -10,7 +10,8 @@ interface Report {
   from: string;
   to: string;
   timezone: string;
-  summary: { revenue: number; transactions: number; avgTicket: number; itemsSold: number; cancelled: number; expired: number };
+  summary: { revenue: number; transactions: number; avgTicket: number; itemsSold: number; cancelled: number; expired: number; undelivered: number; undeliveredAmount: number };
+  byChannel: { channel: string; transactions: number; revenue: number }[];
   byDay: { date: string; transactions: number; revenue: number; itemsSold: number }[];
   byItem: { sku: string; name: string; quantity: number; revenue: number }[];
   byStaff: { name: string; transactions: number; revenue: number }[];
@@ -93,6 +94,8 @@ export function SalesReport({ outlet }: { outlet: string }) {
       ["Item terjual", report.summary.itemsSold],
       ["Dibatalkan", report.summary.cancelled],
       ["Kedaluwarsa", report.summary.expired],
+      ["QR Antar gagal diantar", report.summary.undelivered],
+      ["Nominal QR Antar tidak terbayar", report.summary.undeliveredAmount],
       [],
     ];
     const detail =
@@ -100,7 +103,14 @@ export function SalesReport({ outlet }: { outlet: string }) {
         ? [["Jam bayar", "Kode", "Item", "Total", "Kasir", "Metode", "Jenis"], ...(report.transactions ?? []).map((t) => [formatTime(t.paidAt), t.code, t.items, t.total, t.staff, t.method ?? "", t.orderType === "DINE_IN" ? "Dine-in" : "Takeaway"])]
         : [["Tanggal", "Transaksi", "Item", "Pendapatan"], ...report.byDay.map((d) => [d.date, d.transactions, d.itemsSold, d.revenue])];
     const items = [[], ["Menu", "Terjual", "Pendapatan"], ...report.byItem.map((i) => [i.name, i.quantity, i.revenue])];
-    const staff = [[], ["Kasir", "Transaksi", "Pendapatan"], ...report.byStaff.map((s) => [s.name, s.transactions, s.revenue])];
+    const staff = [
+      [],
+      ["Kasir", "Transaksi", "Pendapatan"],
+      ...report.byStaff.map((s) => [s.name, s.transactions, s.revenue]),
+      [],
+      ["Jalur", "Transaksi", "Pendapatan"],
+      ...report.byChannel.map((c) => [c.channel, c.transactions, c.revenue]),
+    ];
     downloadCsv(`tooday-laporan-${mode === "harian" ? day : month}.csv`, [...header, ...summary, ...detail, ...items, ...staff]);
   }
 
@@ -272,6 +282,31 @@ export function SalesReport({ outlet }: { outlet: string }) {
               </section>
 
               <section className="report-section">
+                <h3>Per jalur</h3>
+                <table className="report-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Jalur</th>
+                      <th scope="col">Transaksi</th>
+                      <th scope="col">Pendapatan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.byChannel.map((row) => (
+                      <tr key={row.channel}>
+                        <th scope="row">{row.channel}</th>
+                        <td className="tabular">{row.transactions}</td>
+                        <td className="tabular">{formatPrice(row.revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {report.summary.undelivered > 0 && (
+                  <p className="report-warn">
+                    {report.summary.undelivered} pesanan QR Antar gagal diantar/tidak dibayar ·{" "}
+                    <strong className="tabular">{formatPrice(report.summary.undeliveredAmount)}</strong> (tidak termasuk pendapatan)
+                  </p>
+                )}
                 <h3>Per kasir penerima</h3>
                 <table className="report-table">
                   <thead>

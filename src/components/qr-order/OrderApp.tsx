@@ -9,7 +9,7 @@ import { brand } from "@/data/brand";
 import { formatPrice } from "@/lib/format";
 import { cart, pending, useCart, type CartLine } from "@/lib/order/cart";
 import { api, newKey, RequestError, useFeed } from "@/lib/order/client";
-import { LIMITS, STATUS_LABEL, type GuestOrderView, type OrderStatus, type OutletInfo, type PublicMenuItem } from "@/lib/order/types";
+import { LIMITS, STATUS_LABEL, type DeliveryPayment, type Fulfillment, type GuestOrderView, type OrderStatus, type OutletInfo, type PublicMenuItem } from "@/lib/order/types";
 import { Mascot } from "@/components/ui/Mascot";
 import { MenuPhoto } from "@/components/ui/MenuPhoto";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
@@ -47,7 +47,9 @@ export function OrderApp() {
   const rawOutlet = params.get("outlet") ?? DEFAULT_OUTLET;
   const outlet = slugPattern.test(rawOutlet) ? rawOutlet : DEFAULT_OUTLET;
   const table = params.get("table");
-  const menuUrl = `/api/menu?outlet=${encodeURIComponent(outlet)}${table ? `&table=${encodeURIComponent(table)}` : ""}`;
+  // QR per lokasi antar: ?antar=<kode lokasi> → pilihan QR Antar dan lokasinya langsung terisi.
+  const antar = params.get("antar");
+  const menuUrl = `/api/menu?outlet=${encodeURIComponent(outlet)}${table ? `&table=${encodeURIComponent(table)}` : ""}${antar ? `&antar=${encodeURIComponent(antar)}` : ""}`;
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const { data: menu, health, refresh: refreshMenu } = useFeed<MenuResponse>({
@@ -63,6 +65,11 @@ export function OrderApp() {
   const [cartOpen, setCartOpen] = useState(false);
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   const [submit, setSubmit] = useState<SubmitState>({ kind: "idle" });
+  // Pilihan cara terima. null = belum dipilih: QR lokasi otomatis memilih QR Antar.
+  const [modeChoice, setModeChoice] = useState<Fulfillment | null>(null);
+  const [locationChoice, setLocationChoice] = useState<string | null>(null);
+  const [deliveryDetail, setDeliveryDetail] = useState("");
+  const [payHint, setPayHint] = useState<DeliveryPayment>("QRIS");
   const [active, setActive] = useState<ActiveOrder[]>([]);
 
   const bySku = useMemo(() => new Map((menu?.items ?? []).map((item) => [item.sku, item])), [menu]);
@@ -131,9 +138,18 @@ export function OrderApp() {
     setDetailOpen(true);
   }
 
+  const deliveryOpen = menu?.outlet.acceptingDelivery ?? false;
+  const mode: Fulfillment = deliveryOpen ? (modeChoice ?? (menu?.outlet.presetLocation ? "DELIVERY" : "COUNTER")) : "COUNTER";
+  const location = locationChoice ?? menu?.outlet.presetLocation ?? "";
+  const presetName = menu?.outlet.deliveryLocations.find((entry) => entry.code === menu.outlet.presetLocation)?.name ?? null;
+
   async function send() {
     if (submit.kind === "sending" || submit.kind === "checking") return;
     if (!menu) return;
+    if (mode === "DELIVERY" && (!location || !cartState.nickname.trim())) {
+      setSubmit({ kind: "error", tone: "warn", message: "Untuk QR Antar, pilih lokasi dan isi nama panggilan supaya kasir bisa menemukanmu." });
+      return;
+    }
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       setSubmit({ kind: "error", tone: "offline", message: "Koneksi terputus. Pilihanmu tetap tersimpan. Coba lagi saat tersambung." });
       return;
@@ -159,8 +175,10 @@ export function OrderApp() {
           outlet,
           idempotencyKey: key,
           orderType: cartState.orderType,
-          table: cartState.orderType === "DINE_IN" ? menu.outlet.table : null,
+          table: mode === "COUNTER" && cartState.orderType === "DINE_IN" ? menu.outlet.table : null,
           nickname: cartState.nickname || undefined,
+          fulfillment: mode,
+          ...(mode === "DELIVERY" ? { delivery: { location, detail: deliveryDetail || undefined, payHint } } : {}),
           lines,
           expectedTotal: total,
         },
@@ -242,7 +260,9 @@ export function OrderApp() {
             <h1 id="qo-hello-title" className="qo-hello-title">
               Halo, sudah siap pilih yang enak?
             </h1>
-            <p className="qo-hello-sub">Pilih dari sini. Pembayarannya nanti di kasir, ya.</p>
+            <p className="qo-hello-sub">
+              {mode === "DELIVERY" && presetName ? `Pilih dari sini, nanti kami antar ke ${presetName}. Bayar saat pesanan diterima.` : "Pilih dari sini. Pembayarannya nanti di kasir, ya."}
+            </p>
             {menu && <p className="qo-hello-outlet">{menu.outlet.name}</p>}
           </div>
         </section>
@@ -361,6 +381,18 @@ export function OrderApp() {
           bySku={bySku}
           orderType={cartState.orderType}
           nickname={cartState.nickname}
+          delivery={{
+            open: deliveryOpen,
+            mode,
+            locations: menu?.outlet.deliveryLocations ?? [],
+            location,
+            detail: deliveryDetail,
+            payHint,
+            setMode: setModeChoice,
+            setLocation: setLocationChoice,
+            setDetail: setDeliveryDetail,
+            setPayHint,
+          }}
           table={menu?.outlet.table ?? null}
           accepting={accepting}
           total={total}
@@ -461,7 +493,21 @@ function ProductDetail({ item, onAdd }: { item: PublicMenuItem; onAdd: (qty: num
   );
 }
 
+interface DeliveryControls {
+  open: boolean;
+  mode: Fulfillment;
+  locations: { code: string; name: string }[];
+  location: string;
+  detail: string;
+  payHint: DeliveryPayment;
+  setMode: (mode: Fulfillment) => void;
+  setLocation: (code: string) => void;
+  setDetail: (detail: string) => void;
+  setPayHint: (hint: DeliveryPayment) => void;
+}
+
 interface CartPanelProps {
+  delivery: DeliveryControls;
   lines: CartLine[];
   bySku: Map<string, PublicMenuItem>;
   orderType: "DINE_IN" | "TAKEAWAY";
@@ -475,7 +521,8 @@ interface CartPanelProps {
   onBrowse: () => void;
 }
 
-function CartPanel({ lines, bySku, orderType, nickname, table, accepting, total, submit, onSend, onDismissError, onBrowse }: CartPanelProps) {
+function CartPanel({ delivery, lines, bySku, orderType, nickname, table, accepting, total, submit, onSend, onDismissError, onBrowse }: CartPanelProps) {
+  const isDelivery = delivery.mode === "DELIVERY";
   const count = lines.reduce((sum, line) => sum + line.qty, 0);
   const problems = lines.filter((line) => {
     const item = bySku.get(line.sku);
@@ -550,7 +597,79 @@ function CartPanel({ lines, bySku, orderType, nickname, table, accepting, total,
         <Plus aria-hidden="true" size={16} /> Tambah menu lain
       </button>
 
-      <fieldset className="qo-field qo-type">
+      {delivery.open && (
+        <fieldset className="qo-field qo-type">
+          <legend>Cara terima pesanan</legend>
+          <div className="qo-choice">
+            {(
+              [
+                ["COUNTER", "Ambil di counter", "Bayar di kasir, ambil saat nomormu siap."],
+                ["DELIVERY", "QR Antar", "Diantar ke tempatmu di area Tooday. Bayar saat diterima."],
+              ] as const
+            ).map(([value, title, text]) => (
+              <label key={value} className={delivery.mode === value ? "is-on" : ""}>
+                <input type="radio" name="fulfillment" value={value} checked={delivery.mode === value} onChange={() => delivery.setMode(value)} disabled={busy} />
+                <span className="qo-choice-title">{title}</span>
+                <span className="qo-choice-text">{text}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      {isDelivery && (
+        <div className="qo-delivery">
+          <div className="qo-field">
+            <label htmlFor="qo-location">Antar ke mana?</label>
+            <select
+              id="qo-location"
+              value={delivery.location}
+              onChange={(event) => {
+                delivery.setLocation(event.target.value);
+                if (submit.kind === "error") onDismissError();
+              }}
+              disabled={busy}
+              required
+            >
+              <option value="" disabled>
+                Pilih lokasi
+              </option>
+              {delivery.locations.map((entry) => (
+                <option key={entry.code} value={entry.code}>
+                  {entry.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="qo-field">
+            <label htmlFor="qo-delivery-detail">
+              Petunjuk tambahan <span className="qo-optional">(opsional)</span>
+            </label>
+            <input
+              id="qo-delivery-detail"
+              value={delivery.detail}
+              maxLength={80}
+              placeholder="mis. meja pojok, baju merah"
+              onChange={(event) => delivery.setDetail(event.target.value)}
+              disabled={busy}
+            />
+          </div>
+          <fieldset className="qo-field">
+            <legend>Bayar saat diterima pakai</legend>
+            <div className="qo-segment">
+              {(["QRIS", "TUNAI"] as const).map((hint) => (
+                <label key={hint} className={delivery.payHint === hint ? "is-on" : ""}>
+                  <input type="radio" name="pay-hint" value={hint} checked={delivery.payHint === hint} onChange={() => delivery.setPayHint(hint)} disabled={busy} />
+                  {hint === "QRIS" ? "QRIS" : "Tunai"}
+                </label>
+              ))}
+            </div>
+            <p className="qo-hint">Kasir membawa QRIS{delivery.payHint === "TUNAI" ? " dan kembalian" : ""} saat mengantar.</p>
+          </fieldset>
+        </div>
+      )}
+
+      <fieldset className="qo-field qo-type" hidden={isDelivery}>
         <legend>Makan di mana?</legend>
         <div className="qo-segment">
           {(["DINE_IN", "TAKEAWAY"] as const).map((type) => (
@@ -565,7 +684,7 @@ function CartPanel({ lines, bySku, orderType, nickname, table, accepting, total,
 
       <div className="qo-field">
         <label htmlFor="qo-nickname">
-          Nama panggilan <span className="qo-optional">(opsional)</span>
+          Nama panggilan {isDelivery ? <span className="qo-required">(wajib untuk QR Antar)</span> : <span className="qo-optional">(opsional)</span>}
         </label>
         <input
           id="qo-nickname"
@@ -573,12 +692,16 @@ function CartPanel({ lines, bySku, orderType, nickname, table, accepting, total,
           autoComplete="nickname"
           value={nickname}
           maxLength={LIMITS.nicknameMax}
-          onChange={(event) => cart.setNickname(event.target.value)}
+          required={isDelivery}
+          onChange={(event) => {
+            cart.setNickname(event.target.value);
+            if (submit.kind === "error") onDismissError();
+          }}
           disabled={busy}
           aria-describedby="qo-nickname-hint"
         />
         <p id="qo-nickname-hint" className="qo-hint">
-          Biar kasir gampang menyapa. Tidak perlu nomor HP.
+          {isDelivery ? "Dipakai kasir untuk menemukanmu saat mengantar. Tidak perlu nomor HP." : "Biar kasir gampang menyapa. Tidak perlu nomor HP."}
         </p>
       </div>
 
@@ -588,10 +711,21 @@ function CartPanel({ lines, bySku, orderType, nickname, table, accepting, total,
       </div>
 
       <div className="qo-paynote">
-        <p>
-          <strong>Pembayaran dilakukan di kasir.</strong>
-        </p>
-        <p>Cek pilihanmu dulu. Pesanan akan mulai dibuat setelah pembayaran dikonfirmasi.</p>
+        {isDelivery ? (
+          <>
+            <p>
+              <strong>Bayar saat pesanan diterima.</strong>
+            </p>
+            <p>Kasir menerima pesananmu dulu, lalu membuat dan mengantarnya. Siapkan QRIS atau tunai sesuai total.</p>
+          </>
+        ) : (
+          <>
+            <p>
+              <strong>Pembayaran dilakukan di kasir.</strong>
+            </p>
+            <p>Cek pilihanmu dulu. Pesanan akan mulai dibuat setelah pembayaran dikonfirmasi.</p>
+          </>
+        )}
       </div>
 
       <div ref={errorRef} tabIndex={-1} className="qo-submit-status" aria-live="assertive">
@@ -611,7 +745,7 @@ function CartPanel({ lines, bySku, orderType, nickname, table, accepting, total,
       </div>
 
       <button type="button" className="qo-btn qo-btn--red qo-btn--block" onClick={onSend} disabled={busy || problems.length > 0 || !accepting} aria-disabled={busy}>
-        {submit.kind === "sending" ? "Mengirim pesanan…" : submit.kind === "checking" ? "Memastikan pesanan…" : "Kirim pesanan"}
+        {submit.kind === "sending" ? "Mengirim pesanan…" : submit.kind === "checking" ? "Memastikan pesanan…" : isDelivery ? "Kirim pesanan antar" : "Kirim pesanan"}
       </button>
     </div>
   );

@@ -24,8 +24,48 @@ interface Copy {
   step: 0 | 1 | 2 | 3 | 4 | 5;
 }
 
+/** Teks untuk pesanan QR Antar: diterima kasir, dibuat, diantar, lalu dibayar saat diterima. */
+function deliveryCopy(order: GuestOrderView): Copy {
+  const place = order.delivery?.location ?? "lokasimu";
+  const pay = order.delivery?.payHint === "TUNAI" ? "uang tunai" : order.delivery?.payHint === "QRIS" ? "aplikasi untuk scan QRIS" : "pembayaran (QRIS atau tunai)";
+  const base = { codeLabel: "Kode pesananmu" } as const;
+  switch (order.status) {
+    case "DELIVERY_REQUESTED":
+      return { ...base, title: "Pesanan antar terkirim!", lead: "Tunggu kasir menerima pesananmu.", text: `Setelah diterima, pesanan dibuat lalu diantar ke ${place}.`, mascot: "girl-head", step: 1 };
+    case "QUEUED":
+      return { ...base, title: "Pesananmu diterima!", text: `Sebentar lagi dibuat, lalu diantar ke ${place}.`, mascot: "girl-head", step: 2 };
+    case "PREPARING":
+      return { ...base, title: "Lagi disiapin buat kamu.", text: `Setelah siap, langsung diantar ke ${place}.`, mascot: "girl-head", step: 3 };
+    case "READY":
+      return { ...base, title: "Pesananmu siap!", text: `Sebentar lagi diantar ke ${place}. Siapkan ${pay}, ya.`, mascot: "boy-with-cup", step: 3 };
+    case "DELIVERING":
+      return { ...base, title: "Pesananmu sedang diantar!", lead: `Ke ${place}.`, text: `Bayar saat pesanan diterima. Siapkan ${pay} untuk ${formatPrice(order.total)}.`, mascot: "boy-pointing", step: 4 };
+    case "COMPLETED":
+      return { ...base, title: "Selamat menikmati tooday!", text: "Terima kasih, pembayaran sudah diterima.", mascot: "boy-with-cup", step: 5 };
+    case "CANCELLED":
+      return {
+        ...base,
+        title: "Pesanan antar tidak diproses.",
+        text: order.closeReason && order.closeReason !== "Dibatalkan pelanggan" ? `Keterangan kasir: ${order.closeReason}` : "Pesanan ini dibatalkan dan tidak perlu dibayar.",
+        mascot: "boy-peeking",
+        step: 0,
+      };
+    case "UNDELIVERED":
+      return { ...base, title: "Pesanan tidak bisa diserahkan.", text: "Hubungi kasir Tooday kalau ada kendala, ya.", mascot: "boy-peeking", step: 0 };
+    default:
+      return {
+        ...base,
+        title: "Pesanan kedaluwarsa.",
+        text: "Pesanan antar belum diterima kasir sampai batas waktu. Kamu bisa pesan lagi kapan saja.",
+        mascot: "boy-peeking",
+        step: 0,
+      };
+  }
+}
+
 /** Teks per status, mengikuti brief. Semua angka antrean berasal dari server. */
 function copyFor(order: GuestOrderView): Copy {
+  if (order.fulfillment === "DELIVERY") return deliveryCopy(order);
   switch (order.status) {
     case "CALLED":
       return order.calledOnSubmit
@@ -92,17 +132,22 @@ function copyFor(order: GuestOrderView): Copy {
         mascot: "boy-peeking",
         step: 0,
       };
+    default:
+      return { title: "Status pesanan diperbarui.", text: "Muat ulang halaman bila tampilan belum berubah.", codeLabel: "Kode pesanan", mascot: "girl-head", step: 0 };
   }
 }
 
 function stampFor(order: GuestOrderView): { label: string; tone: "red" | "olive" | "muted" } {
   if (order.status === "CANCELLED") return { label: "Dibatalkan", tone: "muted" };
   if (order.status === "EXPIRED") return { label: "Kedaluwarsa", tone: "muted" };
+  if (order.status === "UNDELIVERED") return { label: "Tidak diserahkan", tone: "muted" };
   if (order.payment === "PAID") return { label: "Sudah dibayar", tone: "olive" };
+  if (order.fulfillment === "DELIVERY") return { label: "Bayar saat diterima", tone: "red" };
   return { label: "Belum dibayar", tone: "red" };
 }
 
 const STEPS = ["Terkirim", "Bayar di kasir", "Dibuat", "Siap diambil"];
+const DELIVERY_STEPS = ["Terkirim", "Diterima", "Dibuat", "Diantar"];
 
 export function TicketView() {
   const { id } = useParams<{ id: string }>();
@@ -134,7 +179,13 @@ export function TicketView() {
   useEffect(() => {
     if (!order) return;
     const marker =
-      order.status === "CALLED" ? `call-${order.callEventId}` : order.status === "READY" ? `ready-${order.readyEventId}` : null;
+      order.status === "CALLED"
+        ? `call-${order.callEventId}`
+        : order.status === "DELIVERING"
+          ? "delivering"
+          : order.status === "READY" && order.fulfillment === "COUNTER"
+            ? `ready-${order.readyEventId}`
+            : null;
     const previous = lastEvent.current;
     lastEvent.current = marker;
     document.title = order.status === "CALLED" ? `Giliranmu! ${order.code} · Tooday` : order.status === "READY" ? `${order.code} siap! · Tooday` : `${order.code} · Tooday`;
@@ -209,8 +260,10 @@ export function TicketView() {
 
   const copy = copyFor(order);
   const stamp = stampFor(order);
-  const cancellable = order.status === "WAITING_PAYMENT" || order.status === "DEFERRED";
-  const live = order.status !== "COMPLETED" && order.status !== "CANCELLED" && order.status !== "EXPIRED";
+  const isDelivery = order.fulfillment === "DELIVERY";
+  const cancellable = order.status === "WAITING_PAYMENT" || order.status === "DEFERRED" || order.status === "DELIVERY_REQUESTED";
+  const live = !["COMPLETED", "CANCELLED", "EXPIRED", "UNDELIVERED"].includes(order.status);
+  const steps = isDelivery ? DELIVERY_STEPS : STEPS;
   const stale = health === "reconnecting" || health === "offline";
 
   return (
@@ -237,28 +290,35 @@ export function TicketView() {
 
           <div className="ticket-code-block">
             <p className="ticket-code-label">{copy.codeLabel}</p>
-            <p className={`ticket-code ${order.status === "CALLED" || order.status === "READY" ? "is-hot" : ""}`}>{order.code}</p>
+            <p className={`ticket-code ${order.status === "CALLED" || order.status === "READY" || order.status === "DELIVERING" ? "is-hot" : ""}`}>{order.code}</p>
             <p className={`ticket-stamp ticket-stamp--${stamp.tone}`}>{stamp.label}</p>
           </div>
 
           <div className="ticket-perf" aria-hidden="true" />
 
           <p className="ticket-sum">
-            <span>{order.payment === "PAID" ? "Sudah dibayar" : "Belum dibayar"}</span>
+            <span>{order.payment === "PAID" ? "Sudah dibayar" : isDelivery ? "Bayar saat diterima" : "Belum dibayar"}</span>
             <span aria-hidden="true">·</span>
             <span>
               Total <strong className="tabular">{formatPrice(order.total)}</strong>
             </span>
           </p>
+          {order.delivery && (
+            <p className="ticket-delivery">
+              <strong>QR Antar</strong> ke {order.delivery.location}
+              {order.delivery.detail ? ` · ${order.delivery.detail}` : ""}
+              {order.delivery.payHint ? ` · bayar ${order.delivery.payHint === "QRIS" ? "QRIS" : "tunai"}` : ""}
+            </p>
+          )}
           <p className="ticket-meta">
-            {order.orderType === "DINE_IN" ? "Dine-in" : "Takeaway"}
+            {isDelivery ? "Diantar" : order.orderType === "DINE_IN" ? "Dine-in" : "Takeaway"}
             {order.table ? ` · Meja ${order.table}` : ""}
             {order.nickname ? ` · ${order.nickname}` : ""} · {formatTime(order.createdAt)}
           </p>
 
           {copy.step > 0 && (
             <ol className="ticket-steps" aria-label="Tahap pesanan">
-              {STEPS.map((label, index) => {
+              {steps.map((label, index) => {
                 const step = index + 1;
                 const state = step < copy.step ? "done" : step === copy.step ? "now" : "next";
                 return (
@@ -311,7 +371,7 @@ export function TicketView() {
           </Link>
         </div>
         <p className="ticket-foot">
-          Pengambilan di counter. Halaman ini diperbarui otomatis{updatedAt ? ` · ${formatTime(updatedAt, true)}` : ""}.
+          {isDelivery ? "Pesanan diantar oleh kasir Tooday." : "Pengambilan di counter."} Halaman ini diperbarui otomatis{updatedAt ? ` · ${formatTime(updatedAt, true)}` : ""}.
         </p>
       </main>
 

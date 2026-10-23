@@ -81,6 +81,11 @@ export function MenuManager({ outlet, onChanged }: { outlet: string; onChanged: 
     }
   }
 
+  function closeEditor() {
+    setEditor(null);
+    setError(null);
+  }
+
   const activeSections = sections?.filter((section) => section.active) ?? [];
   const archivedSections = sections?.filter((section) => !section.active) ?? [];
 
@@ -103,7 +108,7 @@ export function MenuManager({ outlet, onChanged }: { outlet: string; onChanged: 
       <p className="mm-flash" role="status" aria-live="polite">
         {flash}
       </p>
-      {error && (
+      {error && !editor && (
         <p className="kasir-notice kasir-notice--warn" role="alert">
           {error}
         </p>
@@ -156,12 +161,17 @@ export function MenuManager({ outlet, onChanged }: { outlet: string; onChanged: 
         </details>
       )}
 
-      <Modal open={editor !== null} onClose={() => setEditor(null)} labelledBy="mm-editor-title" wide={editor?.kind === "item"}>
+      <Modal
+        open={editor !== null}
+        onClose={closeEditor}
+        labelledBy="mm-editor-title"
+        wide={editor?.kind === "item"}
+      >
         {editor?.kind === "section" && (
           <SectionForm
             section={editor.section}
             busy={busy}
-            onCancel={() => setEditor(null)}
+            onCancel={closeEditor}
             onSave={async (name) => {
               const ok = editor.section
                 ? await change({ op: "update-section", id: editor.section.id, name }, `Section diganti menjadi ${name}`)
@@ -179,7 +189,7 @@ export function MenuManager({ outlet, onChanged }: { outlet: string; onChanged: 
             sectionId={editor.sectionId}
             item={editor.item}
             busy={busy}
-            onCancel={() => setEditor(null)}
+            onCancel={closeEditor}
             onSave={async (values) => {
               const ok = editor.item
                 ? await change({ op: "update-item", sku: editor.item.sku, ...values }, `${values.name} disimpan`)
@@ -196,6 +206,12 @@ export function MenuManager({ outlet, onChanged }: { outlet: string; onChanged: 
                 : undefined
             }
           />
+        )}
+        {/* Galat simpan tampil di dalam dialog; di belakang modal tidak terlihat. */}
+        {error && editor && (
+          <p className="kasir-notice kasir-notice--warn mm-dialog-error" role="alert">
+            {error}
+          </p>
         )}
       </Modal>
     </div>

@@ -2419,6 +2419,11 @@ html:has(.qo) {
 }
 
 /* Form menu: dua kolom di layar lebar, pratinjau kartu seperti di halaman pesan. */
+/* Galat simpan di bawah tombol dialog kelola menu. */
+.mm-dialog-error {
+  margin: -8px clamp(20px, 3vw, 28px) clamp(20px, 3vw, 28px);
+}
+
 .mm-form-grid {
   display: grid;
   gap: 8px 22px;

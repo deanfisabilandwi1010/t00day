@@ -582,8 +582,9 @@ describe("kelola menu oleh manager", () => {
     assert.equal(order.status, 201);
     assert.equal(order.data.order.total, 48000);
 
-    // Nama sama → sku unik baru, bukan menimpa.
-    await admin(manager, fx.slug, { op: "create-item", sectionId: section.id, name: "Es Kopi Gula Aren", price: 26000 });
+    // Nama sama → sku unik baru, bukan menimpa. Bentuk persis dari form: deskripsi kosong = null.
+    const second = await admin(manager, fx.slug, { op: "create-item", sectionId: section.id, name: "Es Kopi Gula Aren", description: null, price: 26000, image: null });
+    assert.equal(second.status, 200, "deskripsi kosong (null) dari form harus diterima");
     data = (await manager.get(`/api/kasir/menu-admin?outlet=${fx.slug}`)).data;
     assert.deepEqual(data.sections.find((entry) => entry.id === section.id).items.map((entry) => entry.sku).sort(), ["es-kopi-gula-aren", "es-kopi-gula-aren-2"]);
   });
